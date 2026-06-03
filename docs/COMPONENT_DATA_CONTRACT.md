@@ -10,7 +10,10 @@
 1. [AIPredictionChart](#1-aipredictionchart) — Biểu đồ dự đoán AI (VIP locked)
 2. [RiskManagementCard](#2-riskmanagementcard) — Quản trị rủi ro
 3. [AiTradingSuggestions](#3-aitradingsuggestions) — Gợi ý giao dịch từ AI
-4. [Ghi chú kết nối Backend](#4-ghi-chú-kết-nối-backend)
+4. [Mock API Endpoints (mới)](#4-mock-api-endpoints-đang-hoạt-động) — 3 endpoint AI/Risk
+5. [Hướng dẫn kết nối Backend](#5-hướng-dẫn-kết-nối-backend-thật)
+6. [Tất cả API Endpoints có sẵn](#6-tất-cả-api-endpoints-có-sẵn) — 13 endpoint gốc
+7. [Mock Data Source Files](#7-mock-data-source-files) — Interfaces & data gốc
 
 ---
 
@@ -484,6 +487,236 @@ BACKEND_URL=https://your-backend.com/api  # Server-side only
 
 ---
 
-> **Lần cập nhật cuối:** 2026-06-03
-> **Commit liên quan:** `feat: add mock API endpoints for risk, AI suggestions, AI prediction`
+## 6. Tất cả API Endpoints có sẵn
 
+Ngoài 3 endpoint mới ở section 4, dự án còn **13 endpoint gốc** đã hoạt động:
+
+### Bảng tổng hợp (13 endpoints gốc)
+
+| # | Endpoint | Method | Mô tả |
+|---|----------|--------|--------|
+| 1 | `/api/market/overview` | GET | Tổng quan thị trường (indices, trending, gainers, losers) |
+| 2 | `/api/markets` | GET | Stock screener (search, filter, sort) |
+| 3 | `/api/metrics/{metric}` | GET | Chi tiết chỉ số tài chính (P/E, EPS...) |
+| 4 | `/api/news` | GET | Danh sách tin tức |
+| 5 | `/api/news/{id}` | GET | Chi tiết một tin tức |
+| 6 | `/api/stocks/{symbol}/quote` | GET | Báo giá cổ phiếu |
+| 7 | `/api/stocks/{symbol}/news` | GET | Tin tức theo mã cổ phiếu |
+| 8 | `/api/user/recent-symbols` | GET, POST | Mã xem gần đây |
+| 9 | `/api/user/recommendations` | GET | Gợi ý cổ phiếu |
+| 10 | `/api/user/saved-news` | GET, POST | Tin đã lưu |
+| 11 | `/api/user/saved-news/{id}` | DELETE | Xóa tin đã lưu |
+| 12 | `/api/user/watchlist` | GET, POST | Danh sách theo dõi |
+| 13 | `/api/user/watchlist/{symbol}` | DELETE | Xóa khỏi watchlist |
+
+---
+
+### 6.1 Market Overview
+```
+GET /api/market/overview
+```
+**Response:** `{ indices: MarketIndex[], trending, gainers, losers, marketTable: StockQuote[], latestNews: NewsItem[] }`
+**Mock source:** `lib/market/mock-data.ts` → `INDICES`, `STOCKS`, `NEWS`, `getGainers()`, `getLosers()`, `getTrending()`
+
+---
+
+### 6.2 Markets (Stock Screener)
+```
+GET /api/markets?search=NVDA&sector=Technology&sort=marketCap&dir=desc
+```
+**Query params:** `search` (string), `sector` (string), `sort` (field name, default `marketCap`), `dir` (`asc`|`desc`)
+**Response:** `{ data: StockQuote[], total: number }`
+**Mock source:** `lib/market/mock-data.ts` → `STOCKS`
+
+---
+
+### 6.3 Metric Detail
+```
+GET /api/metrics/{metric}
+```
+**Path param:** `metric` — slug (VD: `pe-ratio`, `market-cap`, `eps`, `dividend-yield`, `beta`, `52-week-high`, `52-week-low`, `volume`)
+**Response:** `{ slug, name, nameVi, description, formula?, whyItMatters, relatedMetrics: string[] }`
+**Mock source:** `lib/market/metrics-data.ts` → `getMetricBySlug()`
+
+---
+
+### 6.4 News List
+```
+GET /api/news
+```
+**Response:** `{ data: NewsItem[] }`
+**Mock source:** `lib/market/mock-data.ts` → `NEWS`
+
+---
+
+### 6.5 News Detail
+```
+GET /api/news/{id}
+```
+**Path param:** `id` — news ID
+**Response:** Single `NewsItem` object
+**Mock source:** `lib/market/mock-data.ts` → `getNewsById()`
+
+---
+
+### 6.6 Stock Quote
+```
+GET /api/stocks/{symbol}/quote
+```
+**Path param:** `symbol` — mã cổ phiếu (VD: `AAPL`)
+**Response:**
+```json
+{
+  "symbol": "AAPL", "name": "Apple Inc.", "price": 213.25,
+  "change": 3.12, "changePercent": 1.48, "exchange": "NASDAQ",
+  "currency": "USD", "marketCap": 3280000000000, "volume": 54200000,
+  "peRatio": 33.2, "eps": 6.42, "dividendYield": 0.44, "beta": 1.24,
+  "high52w": 237.23, "low52w": 164.08, "sector": "Technology",
+  "updatedAt": "2026-06-03T07:06:00.000Z"
+}
+```
+**Mock source:** `lib/market/mock-data.ts` → `getStockBySymbol()`
+
+---
+
+### 6.7 Stock News
+```
+GET /api/stocks/{symbol}/news
+```
+**Path param:** `symbol`
+**Response:** `{ data: NewsItem[] }` — lọc theo `symbols` chứa `symbol`
+**Mock source:** `lib/market/mock-data.ts` → `getNewsForSymbol()`
+
+---
+
+### 6.8 User Recent Symbols
+```
+GET /api/user/recent-symbols
+POST /api/user/recent-symbols  →  body: { symbol, name }
+```
+**GET Response:** `{ data: [{ symbol, name, viewed_at }] }`
+**POST Response:** `{ data: <body>, message: "Symbol recorded" }`
+**Mock source:** Inline array (GOOGL, META, AMZN)
+
+---
+
+### 6.9 User Recommendations
+```
+GET /api/user/recommendations
+```
+**Response:**
+```json
+{
+  "data": [
+    { "symbol": "NVDA", "reason": "Doanh thu kỷ lục, nhiều tin tích cực", "type": "news" },
+    { "symbol": "AAPL", "reason": "Gần 52-week high, sản phẩm mới", "type": "technical" },
+    { "symbol": "TSLA", "reason": "Biến động mạnh, volume cao", "type": "volatility" },
+    { "symbol": "MSFT", "reason": "Đầu tư AI lớn, triển vọng tốt", "type": "fundamental" }
+  ]
+}
+```
+**Mock source:** Inline array trong route file
+
+---
+
+### 6.10 User Saved News
+```
+GET /api/user/saved-news
+POST /api/user/saved-news  →  body: { newsId, ... }
+```
+**GET Response:** `{ data: NewsItem[] }` — 3 tin đầu kèm `saved_at`
+**POST Response:** `{ data: { id, ...body }, message: "News saved" }`
+**Mock source:** `lib/market/mock-data.ts` → `NEWS.slice(0,3)`
+
+---
+
+### 6.11 Delete Saved News
+```
+DELETE /api/user/saved-news/{id}
+```
+**Response:** `{ message: "Removed saved news {id}" }`
+
+---
+
+### 6.12 User Watchlist
+```
+GET /api/user/watchlist
+POST /api/user/watchlist  →  body: { symbol, name, ... }
+```
+**GET Response:**
+```json
+{
+  "data": [
+    { "id": "1", "symbol": "AAPL", "name": "Apple Inc.", "asset_type": "stock", "exchange": "NASDAQ" },
+    { "id": "2", "symbol": "NVDA", "name": "NVIDIA Corp.", "asset_type": "stock", "exchange": "NASDAQ" }
+  ]
+}
+```
+**POST Response:** `{ data: { id, ...body }, message: "Added to watchlist" }`
+**Mock source:** Inline `mockWatchlist` array (AAPL, NVDA, MSFT, TSLA, SPY)
+
+---
+
+### 6.13 Remove from Watchlist
+```
+DELETE /api/user/watchlist/{symbol}
+```
+**Response:** `{ message: "Removed {symbol} from watchlist" }`
+
+---
+
+## 7. Mock Data Source Files
+
+Tất cả mock data đều nằm trong thư mục `lib/`. Khi kết nối backend, thay thế các file này hoặc bỏ qua chúng.
+
+### 7.1 `lib/market/mock-data.ts`
+
+Chứa 4 interface chính và tất cả dữ liệu mock:
+
+```typescript
+interface StockQuote {
+  symbol: string; name: string; price: number; change: number; changePercent: number;
+  exchange: string; currency: string; marketCap: number; volume: number;
+  peRatio: number; eps: number; dividendYield: number; beta: number;
+  high52w: number; low52w: number; sector: string; sparkline: number[];
+  day1: number; week1: number; month1: number; ytd: number;
+}
+
+interface NewsItem {
+  id: string; title: string; summary: string; source: string; category: string;
+  publishedAt: string; symbols: string[]; sentiment: "bullish" | "bearish" | "neutral";
+  imageUrl?: string; content?: string;
+}
+
+interface MarketIndex {
+  symbol: string; name: string; value: number; change: number; changePercent: number;
+}
+
+interface EconomicEvent {
+  id: string; time: string; currency: string; impact: 'high' | 'medium' | 'low';
+  event: string; actual?: string; forecast: string; previous: string;
+}
+```
+
+**Exported constants:** `STOCKS` (15 cổ phiếu), `INDICES` (4 chỉ số), `NEWS` (5 tin), `ECONOMIC_CALENDAR` (5 sự kiện)
+**Exported functions:** `getStockBySymbol()`, `getGainers()`, `getLosers()`, `getMostActive()`, `getTrending()`, `getNewsForSymbol()`, `getNewsById()`
+
+### 7.2 `lib/market/metrics-data.ts`
+
+Chứa dữ liệu giải thích các chỉ số tài chính (P/E, EPS, Market Cap, v.v.)
+**Exported:** `METRICS` array, `getMetricBySlug(slug)`
+
+### 7.3 `lib/ai/mock-agent.ts`
+
+Mock AI chatbot cho tab AI Q&A trong trang chi tiết cổ phiếu.
+**Exported:** `getMockAIResponse()`, `STOCK_PROMPTS`
+
+### 7.4 `lib/ai/types.ts`
+
+TypeScript types cho AI chat messages.
+**Exported:** `AIMessage`, `AICard`
+
+---
+
+> **Lần cập nhật cuối:** 2026-06-03
+> **Document này bao gồm:** 3 component UI mới + 16 API endpoints (3 mới + 13 gốc) + 4 mock data source files
