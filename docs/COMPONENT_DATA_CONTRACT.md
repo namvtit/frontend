@@ -254,60 +254,236 @@ interface AiSuggestion {
 
 ---
 
-## 4. Ghi chú kết nối Backend
+## 4. Mock API Endpoints (Đang hoạt động)
 
-### Bước chuyển đổi từ Mock → API
+Tất cả mock data đã được serve qua API route của Next.js. Khi dev server chạy (`npm run dev`), bạn có thể gọi trực tiếp các endpoint này.
 
-Đối với mỗi component, quy trình kết nối backend giống nhau:
+### Bảng tổng hợp Endpoints
 
-1. **Tạo API route hoặc service function** trả về data đúng interface ở trên
-2. **Thêm props vào component** để nhận data từ bên ngoài thay vì đọc mock constant
-3. **Gọi API ở page level** (Server Component hoặc `useEffect`) rồi truyền data xuống component
+| # | Endpoint                           | Method | File route                                        | Dùng cho component      |
+|---|------------------------------------|--------|---------------------------------------------------|-------------------------|
+| 1 | `/api/risk/overview`               | GET    | `app/api/risk/overview/route.ts`                  | RiskManagementCard      |
+| 2 | `/api/ai/suggestions`              | GET    | `app/api/ai/suggestions/route.ts`                 | AiTradingSuggestions    |
+| 3 | `/api/ai/prediction/{symbol}`      | GET    | `app/api/ai/prediction/[symbol]/route.ts`         | AIPredictionChart       |
 
-### Ví dụ chuyển đổi nhanh
+---
 
-**Trước (mock):**
+### Endpoint 1: Risk Overview
+
+```
+GET /api/risk/overview
+```
+
+**Tham số:** Không có
+
+**Response:**
+```json
+{
+  "metrics": {
+    "totalCapital": 487234.56,
+    "pnl": 12845.32,
+    "pnlPercent": 2.64,
+    "riskScore": 62,
+    "currentDrawdown": 4.8,
+    "maxDrawdown": 15,
+    "openRiskTotal": 24361.73,
+    "openRiskPercent": 5.0
+  },
+  "alerts": [
+    {
+      "id": "a1",
+      "type": "warning",
+      "title": "Rủi ro mỗi lệnh đang cao",
+      "description": "Lệnh NVDA chiếm 8.2% tổng vốn, vượt ngưỡng 5% khuyến nghị."
+    },
+    {
+      "id": "a2",
+      "type": "danger",
+      "title": "Drawdown vượt ngưỡng",
+      "description": "Drawdown hiện tại 4.8% đang tiến gần ngưỡng cảnh báo 5%."
+    },
+    {
+      "id": "a3",
+      "type": "warning",
+      "title": "Đòn bẩy cao",
+      "description": "Tổng đòn bẩy danh mục đang ở mức 2.3x, vượt mức an toàn 2x."
+    },
+    {
+      "id": "a4",
+      "type": "info",
+      "title": "Risk/Reward chưa tốt",
+      "description": "3/5 lệnh đang mở có tỷ lệ R:R dưới 1:2. Nên cân nhắc điều chỉnh SL/TP."
+    }
+  ],
+  "updatedAt": "2026-06-03T07:00:00.000Z"
+}
+```
+
+---
+
+### Endpoint 2: AI Suggestions
+
+```
+GET /api/ai/suggestions
+GET /api/ai/suggestions?signal=BUY
+```
+
+**Query Parameters:**
+
+| Param    | Type   | Bắt buộc | Mô tả                                         |
+|----------|--------|----------|------------------------------------------------|
+| `signal` | string | Không    | Lọc theo tín hiệu: `BUY`, `SELL`, `HOLD`, `WAIT`. Bỏ trống = tất cả |
+
+**Response:**
+```json
+{
+  "suggestions": [
+    {
+      "id": "s1",
+      "symbol": "BTCUSDT",
+      "signal": "BUY",
+      "confidence": 78,
+      "riskLevel": "medium",
+      "entryZone": "$101,200 – $102,500",
+      "stopLoss": "$98,800",
+      "takeProfit": "$108,500",
+      "riskReward": "1:2.4",
+      "reason": "BTC đang tích lũy trên vùng hỗ trợ mạnh...",
+      "warning": "Biến động cao quanh vùng $100K...",
+      "timeframe": "H4 – D1"
+    }
+  ],
+  "total": 5,
+  "filtered": 2,
+  "updatedAt": "2026-06-03T07:00:00.000Z"
+}
+```
+
+---
+
+### Endpoint 3: AI Prediction
+
+```
+GET /api/ai/prediction/{symbol}
+```
+
+**Path Parameters:**
+
+| Param    | Type   | Mô tả                              |
+|----------|--------|--------------------------------------|
+| `symbol` | string | Mã cổ phiếu (VD: `NVDA`, `AAPL`)   |
+
+**Response:**
+```json
+{
+  "symbol": "NVDA",
+  "historical": [
+    { "time": "2026-04-01", "value": 178.23 },
+    { "time": "2026-04-02", "value": 180.15 }
+  ],
+  "prediction": [
+    { "time": "2026-06-03", "value": 195.50 },
+    { "time": "2026-06-04", "value": 196.12 }
+  ],
+  "upperBand": [
+    { "time": "2026-06-03", "value": 195.50 },
+    { "time": "2026-06-04", "value": 197.72 }
+  ],
+  "lowerBand": [
+    { "time": "2026-06-03", "value": 195.50 },
+    { "time": "2026-06-04", "value": 194.52 }
+  ],
+  "lastPrice": 195.50,
+  "predChange": 3.87,
+  "predChangePercent": 2.02,
+  "trend": "bullish",
+  "predictionDays": 14,
+  "historicalDays": 60,
+  "updatedAt": "2026-06-03T07:00:00.000Z"
+}
+```
+
+> **Lưu ý:** Phần tử đầu tiên của `prediction`, `upperBand`, `lowerBand` luôn trùng với phần tử cuối của `historical` (điểm nối giữa lịch sử và dự đoán).
+
+---
+
+## 5. Hướng dẫn kết nối Backend thật
+
+### Bước 1: Test mock endpoint trước
+
+```bash
+# Chạy dev server
+npm run dev
+
+# Test bằng curl hoặc browser
+curl http://localhost:3000/api/risk/overview
+curl http://localhost:3000/api/ai/suggestions
+curl http://localhost:3000/api/ai/suggestions?signal=BUY
+curl http://localhost:3000/api/ai/prediction/NVDA
+```
+
+### Bước 2: Khi backend thật sẵn sàng
+
+**Cách 1 — Thay nội dung route file (đơn giản nhất):**
+
+Mở file route (VD: `app/api/risk/overview/route.ts`), thay mock data bằng fetch từ backend:
+
+```typescript
+// Trước (mock)
+export async function GET() {
+  return NextResponse.json({ metrics: MOCK_RISK_DATA, alerts: MOCK_ALERTS });
+}
+
+// Sau (backend thật)
+export async function GET() {
+  const res = await fetch(`${process.env.BACKEND_URL}/risk/overview`, {
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  const data = await res.json();
+  return NextResponse.json(data);
+}
+```
+
+**Cách 2 — Component fetch trực tiếp từ backend:**
+
+Bỏ qua Next.js API route, cho component gọi thẳng backend:
+
+```typescript
+// Thêm vào .env.local
+NEXT_PUBLIC_API_BASE_URL=https://your-backend.com/api
+
+// Trong component
+const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/risk/overview`);
+const data = await res.json();
+```
+
+### Bước 3: Cập nhật component nhận data từ API
+
 ```tsx
-// Component tự đọc mock data
+// Trước: component tự đọc mock constant
 export function RiskManagementCard() {
   const data = MOCK_RISK_DATA;
-  // ...
 }
 
-// Page sử dụng
-<RiskManagementCard />
-```
-
-**Sau (API):**
-```tsx
-// Component nhận props
-export function RiskManagementCard({ data, alerts }: { data: RiskData; alerts: RiskAlert[] }) {
+// Sau: component nhận props từ API response
+export function RiskManagementCard({ data, alerts }: {
+  data: RiskData;
+  alerts: RiskAlert[];
+}) {
   // ...
 }
-
-// Page fetch và truyền xuống
-const riskData = await fetchRiskData(userId);
-<RiskManagementCard data={riskData.metrics} alerts={riskData.alerts} />
 ```
-
-### API Endpoints gợi ý
-
-| Endpoint                              | Method | Response Type          | Dùng cho component        |
-|---------------------------------------|--------|------------------------|---------------------------|
-| `/api/risk/overview`                  | GET    | `RiskData`             | RiskManagementCard        |
-| `/api/risk/alerts`                    | GET    | `RiskAlert[]`          | RiskManagementCard        |
-| `/api/ai/suggestions?filter={signal}` | GET    | `AiSuggestion[]`       | AiTradingSuggestions      |
-| `/api/ai/prediction/{symbol}`         | GET    | `PredictionChartData`  | AIPredictionChart         |
-| `/api/user/subscription`              | GET    | `{ isVip: boolean }`   | AIPredictionChart (unlock)|
 
 ### Biến môi trường
 
 ```env
 # .env.local
 NEXT_PUBLIC_API_BASE_URL=https://your-backend.com/api
+BACKEND_URL=https://your-backend.com/api  # Server-side only
 ```
 
 ---
 
-> **Lần cập nhật cuối:** 2026-06-02
-> **Commit liên quan:** `feat: AI Prediction Chart with VIP lock overlay - Lightweight Charts v5`
+> **Lần cập nhật cuối:** 2026-06-03
+> **Commit liên quan:** `feat: add mock API endpoints for risk, AI suggestions, AI prediction`
+
