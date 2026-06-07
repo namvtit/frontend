@@ -22,7 +22,7 @@ interface OrderPanelProps {
 }
 
 export default function OrderPanel({ symbol, currentPrice, currency = 'USD' }: OrderPanelProps) {
-  const [broker, setBroker] = useState(BROKERS[0].id);
+  const [broker, setBroker] = useState<(typeof BROKERS)[number]['id']>(BROKERS[0].id);
   const [orderType, setOrderType] = useState<OrderType>('limit');
   const [side, setSide] = useState<OrderSide>('buy');
   const [quantity, setQuantity] = useState('100');
