@@ -1,6 +1,8 @@
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
 import { getMockAIResponse } from "@/lib/ai/mock-agent";
+import { getMockAgentResponse } from "@/lib/ai/mock-agent";
+import { validateAgentResponse } from "@/lib/ai/agent/types";
 
 const SYSTEM_INSTRUCTION = `Bạn là một trợ lý phân tích tài chính và giao dịch chứng khoán AI thông minh.
 Luôn trả về JSON hợp lệ:
@@ -12,9 +14,20 @@ Nguyên tắc:
 3. Khi người dùng chào hỏi đơn thuần, chỉ cần trả lời: "Chào bạn, mình là trợ lý phân tích tài chính và giao dịch chứng khoán. Mình có thể hỗ trợ bạn tra cứu thông tin cổ phiếu, phân tích kỹ thuật, đọc báo cáo tài chính, hay cập nhật tin tức thị trường. Bạn đang quan tâm đến mã cổ phiếu hay chủ đề nào, cứ cho mình biết nhé."
 4. Với các câu hỏi khác, trả lời tự nhiên như chat thông thường.`;
 
+const DECISION_SYSTEM_INSTRUCTION = `Bạn là trợ lý AI cho ứng dụng đầu tư PISI.
+Khi người dùng gửi phản hồi về một quyết định đang chờ:
+1. Phân tích ý định của người dùng
+2. Trả về JSON hợp lệ với cấu trúc:
+{"message": "...", "detectedIntent": "...", "requestedAction": "...", "decisionPatch": {"action": "...", "ticker": "...", "quantity": N, "allocationPct": N, "confidence": N, "riskNote": "...", "rationale": "..."}}
+
+Các giá trị detectedIntent hợp lệ: buy, sell, add, reduce, replace, hold, watch, rebalance, reduce_risk, increase_risk, cash_need, unknown
+Các giá trị requestedAction hợp lệ: Buy, Sell, Hold, Watch, Rebalance
+
+Luôn trả về JSON hợp lệ.`;
+
 function cleanAndParseJson(text: string) {
   let cleaned = text.trim();
-  
+
   // Strip think tags using unicode code points for 【 and 】
   const t1 = String.fromCharCode(0x3010);
   const t2 = String.fromCharCode(0x3011);
@@ -39,10 +52,50 @@ function cleanAndParseJson(text: string) {
 
 export async function POST(req: Request) {
   try {
-    const { message, history } = await req.json();
+    const { message, history, context } = await req.json();
 
     const apiKey = process.env.TOKENROUTER_API_KEY;
 
+    // ── Decision feedback path: use structured endpoint ──
+    if (context && typeof context === 'object') {
+      if (!apiKey) {
+        const result = await getMockAgentResponse(message, context);
+        return NextResponse.json({ ...result, isMock: true });
+      }
+
+      try {
+        const client = new OpenAI({
+          baseURL: process.env.TOKENROUTER_BASE_URL || "https://api.tokenrouter.com/v1",
+          apiKey,
+        });
+
+        const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+          { role: "system", content: DECISION_SYSTEM_INSTRUCTION },
+          {
+            role: "user",
+            content: `Ngữ cảnh danh mục: ${JSON.stringify(context)}\n\nPhản hồi người dùng: "${message}"\n\nTrả về JSON.`,
+          },
+        ];
+
+        const completion = await client.chat.completions.create({
+          model: process.env.TOKENROUTER_MODEL || "MiniMax-M3",
+          messages,
+          temperature: 0.3,
+          max_tokens: 2000,
+          response_format: { type: "json_object" },
+        });
+
+        const aiRawText = completion.choices[0]?.message?.content ?? "{}";
+        const parsed = cleanAndParseJson(aiRawText);
+        const validated = validateAgentResponse(parsed);
+        return NextResponse.json({ ...validated, isMock: false });
+      } catch {
+        const result = await getMockAgentResponse(message, context);
+        return NextResponse.json({ ...result, isMock: true });
+      }
+    }
+
+    // ── General chat path: return AIAgentResponse (legacy) ──
     if (!apiKey) {
       const mockRes = await getMockAIResponse(message);
       return NextResponse.json({

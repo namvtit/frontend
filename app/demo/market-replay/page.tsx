@@ -194,6 +194,10 @@ interface DecisionData {
   whyNow: string[];
   confidence: number;
   choices: Array<{ id: string; label: string; description: string; variant: string }>;
+  /** Set when AI revision changed the recommendation */
+  revised?: boolean;
+  /** Tracks how many times AI has revised this decision */
+  revisionCount?: number;
 }
 
 const DecisionCard = memo(function DecisionCard({ decision, onResolve }: { decision: DecisionData; onResolve: (choiceId: string) => void }) {
@@ -235,6 +239,11 @@ const DecisionCard = memo(function DecisionCard({ decision, onResolve }: { decis
         <div className={cn("px-2 py-0.5 rounded-full text-[10px] font-semibold border", getTypeColor())}>
           QĐ {decision.index}/5
         </div>
+        {decision.revised && (
+          <div className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-600 border border-amber-500/20">
+            Đã điều chỉnh
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-2">
@@ -458,7 +467,7 @@ const ChatFeed = memo(function ChatFeed() {
           <div key={msg.id}>
             <ChatMessage message={msg} onChipSelect={handleChip} isLatest={idx === chatMessages.length - 1} />
             {idx === chatMessages.length - 1 && currentDecision?.status === 'pending' && !isAdvancing && !revisionLoading && (
-              <div className="mt-3">
+              <div className="mt-3" key={`dc_${currentDecision.id}_${currentDecision.recommendation.action}_${currentDecision.confidence}`}>
                 <DecisionCard decision={currentDecision} onResolve={choiceId => resolveDecision(currentDecisionIndex, choiceId)} />
               </div>
             )}

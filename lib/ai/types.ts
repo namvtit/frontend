@@ -1,4 +1,23 @@
 // AI Agent types
+
+// ── Primitive enums (must be defined before types that reference them) ──
+
+export type DecisionStatus = "pending" | "accepted" | "rejected" | "skipped";
+export type DecisionType =
+  | "volatility_spike"
+  | "portfolio_drawdown"
+  | "take_profit"
+  | "rebalance"
+  | "risk_breach"
+  | "new_opportunity";
+
+export interface DecisionChip {
+  label: string;
+  value: string;
+}
+
+// ── Message & Card types ──
+
 export interface AIMessage {
   id: string;
   role: "user" | "assistant";
@@ -62,16 +81,7 @@ export interface DecisionHistoryEntry {
   aiAdviceSnapshot: string; // frozen at decision creation time
 }
 
-// ── Simulation Decision types ──
-
-export type DecisionStatus = "pending" | "accepted" | "rejected" | "skipped";
-export type DecisionType =
-  | "volatility_spike"
-  | "portfolio_drawdown"
-  | "take_profit"
-  | "rebalance"
-  | "risk_breach"
-  | "new_opportunity";
+// ── Simulation Decision ──
 
 export interface SimulationDecision {
   id: string;
@@ -86,11 +96,6 @@ export interface SimulationDecision {
   feedbackCount?: number;
   lastFeedback?: string;
   pendingChipValue?: string; // user selected but not yet confirmed
-}
-
-export interface DecisionChip {
-  label: string;
-  value: string;
 }
 
 // ── AI Agent request / response ──
@@ -108,4 +113,3 @@ export interface AIAgentResponse {
   message: string;
   cards: AICard[];
 }
-

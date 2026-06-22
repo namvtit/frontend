@@ -113,6 +113,10 @@ export interface DecisionCheckpoint {
     variant: 'primary' | 'secondary' | 'destructive';
   }>;
   status: 'pending' | 'resolved';
+  /** Set when AI has revised this decision based on user feedback */
+  revised?: boolean;
+  /** Number of AI revisions applied to this decision */
+  revisionCount?: number;
   resolution?: {
     choiceId: string;
     choiceLabel: string;

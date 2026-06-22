@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { getMockAIResponse, SUGGESTED_PROMPTS, getMockDecisionFeedback } from "@/lib/ai/mock-agent";
+import { getMockAIResponse, SUGGESTED_PROMPTS, getMockDecisionFeedback, getMockAgentResponse } from "@/lib/ai/mock-agent";
 import type {
   AIMessage,
   SimulationDecision,
@@ -9,10 +9,12 @@ import type {
   DecisionFeedback,
   DecisionRevision,
   DecisionHistoryEntry,
+  DecisionChip,
 } from "@/lib/ai/types";
 import { useDemo } from "@/lib/demo";
 import { getStockBySymbol } from "@/lib/market/mock-data";
 import { pushToast } from "@/components/ui/toast";
+import type { AgentResponse } from "@/lib/ai/agent/types";
 import {
   Star,
   TrendingUp,
@@ -25,7 +27,6 @@ import {
   Send,
   MessageSquarePlus,
 } from "lucide-react";
-import type { DecisionChip } from "@/lib/ai/types";
 
 // ── Survey configuration ──
 
@@ -240,7 +241,7 @@ function chipValueToStatus(value: string): DecisionStatus {
 // ── Page component ──
 
 export default function AIAgentPage() {
-  const { toggleWatchlist, isInWatchlist, executeBuy, executeSell, getPrice } = useDemo();
+  const { toggleWatchlist, isInWatchlist, executeBuy, executeSell, getPrice, state } = useDemo();
 
   // ── Message state ──
   const [messages, setMessages] = useState<AIMessage[]>([]);
@@ -400,7 +401,6 @@ export default function AIAgentPage() {
   const sendDecisionFeedback = async (feedback: string, decision: SimulationDecision) => {
     if (!feedback.trim()) return;
 
-    // Add user message to chat
     const userMsg: AIMessage = {
       id: `fb_${Date.now()}`,
       role: "user",
@@ -412,51 +412,103 @@ export default function AIAgentPage() {
     setInlineFeedbackLoading(true);
 
     try {
-      // Build context
-      const ctx = {
-        decisionTitle: decision.title,
-        decisionDescription: decision.description,
-        aiAdvice: decision.aiAdvice,
-        selectedChipValue: pendingChipValue ?? undefined,
-        selectedChipLabel: pendingChipValue
-          ? decision.chips?.find((c: DecisionChip) => c.value === pendingChipValue)?.label
-          : undefined,
+      // Build AgentContext
+      const holdings = Object.values(state.holdings).map((h) => {
+        const livePrice = getPrice(h.symbol) || h.avgPrice;
+        const unrealizedPnL = (livePrice - h.avgPrice) * h.quantity;
+        return {
+          symbol: h.symbol,
+          name: h.name,
+          quantity: h.quantity,
+          avgPrice: h.avgPrice,
+          currentPrice: livePrice,
+          unrealizedPnL,
+          unrealizedPnLPct: h.avgPrice > 0 ? (unrealizedPnL / (h.avgPrice * h.quantity)) * 100 : 0,
+        };
+      });
+      const totalAccountValue = state.cashBalance + holdings.reduce((s, h) => s + h.currentPrice * h.quantity, 0);
+
+      const agentContext = {
+        phase: 'decision_active' as const,
+        cashBalance: state.cashBalance,
+        holdings,
+        totalAccountValue,
+        activeDecision: {
+          id: decision.id,
+          title: decision.title,
+          description: decision.description,
+          ticker: (decision as SimulationDecision & { ticker?: string }).ticker,
+          chips: decision.chips ?? [],
+          pendingChipValue: pendingChipValue ?? undefined,
+          pendingChipLabel: pendingChipValue
+            ? decision.chips?.find((c: DecisionChip) => c.value === pendingChipValue)?.label
+            : undefined,
+        },
+        priorFeedback: feedbackMap[decision.id]?.map((f) => f.content),
+        availableTickers: ['AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'META', 'TSLA', 'JPM', 'V', 'SPY', 'QQQ', 'BRK.B', 'XOM', 'UNH', 'DIS'],
       };
 
-      // Try API first, fall back to mock
-      let message = "";
-      let revision: DecisionRevision;
+      let agentResponse: AgentResponse;
 
       try {
         const res = await fetch("/api/ai/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            message: `Phản hồi cho quyết định "${decision.title}": ${feedback}. Khuyến nghị hiện tại: ${decision.aiAdvice}. Hành động đã chọn (chưa xác nhận): ${pendingChipValue ? decision.chips?.find((c: DecisionChip) => c.value === pendingChipValue)?.label : "chưa chọn"}. Hãy phân tích phản hồi này và điều chỉnh khuyến nghị nếu cần.`,
-            context: `Quyết định đang chờ: "${decision.title}" — ${decision.description}`,
-          }),
+          body: JSON.stringify({ message: feedback, context: agentContext }),
         });
 
-        if (res.ok) {
-          const data = await res.json();
-          const raw = data.response ?? data.message ?? "";
-          const cleaned = raw.replace(/<think>[\s\S]*?<\/think>/gi, "");
-          const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
-            message = typeof parsed.message === "string" ? parsed.message : cleaned.trim();
-          } else {
-            message = cleaned.trim();
-          }
-          revision = buildRevisionFromMessage(message, ctx);
-        } else {
-          throw new Error("API error");
-        }
+        if (!res.ok) throw new Error("API error");
+        agentResponse = await res.json();
       } catch {
-        // Deterministic mock fallback
-        const result = await getMockDecisionFeedback(feedback, ctx);
-        message = result.message;
-        revision = result.revision;
+        // Deterministic mock fallback — always structured
+        agentResponse = await getMockAgentResponse(feedback, agentContext);
+      }
+
+      // ── Apply decision patch if present ──
+      if (agentResponse.decisionPatch) {
+        const patch = agentResponse.decisionPatch;
+
+        // Map action string → chip value
+        const actionToChipValue: Record<string, string> = {
+          Buy: 'buy_more',
+          Sell: 'sell_partial',
+          Hold: 'hold',
+          Watch: 'watch',
+          Rebalance: 'rebalance_yes',
+        };
+
+        const suggestedChipValue = actionToChipValue[patch.action ?? ''];
+        const suggestedChip = suggestedChipValue
+          ? decision.chips?.find((c: DecisionChip) => c.value === suggestedChipValue)
+          : null;
+
+        // If we found a chip, pre-select it as the pending choice
+        if (suggestedChip && suggestedChipValue) {
+          setPendingChipValue(suggestedChipValue);
+          setPendingConfirm(decision);
+        }
+
+        // Update the decision with patch info (show revised rationale in decision bar)
+        setSimDecisions((prev) =>
+          prev.map((d) =>
+            d.id === decision.id
+              ? {
+                  ...d,
+                  aiAdvice: patch.rationale
+                    ? `${d.aiAdvice}\n\n[AI đã điều chỉnh: ${patch.rationale}]`
+                    : d.aiAdvice,
+                  feedbackCount: (d.feedbackCount ?? 0) + 1,
+                  lastFeedback: feedback.slice(0, 80),
+                }
+              : d
+          )
+        );
+
+        // Also update the currentDecision if it matches
+        if (currentDecision?.id === decision.id) {
+          // Force re-render by updating a ref-like state trigger
+          setSimDecisions((prev) => [...prev]);
+        }
       }
 
       // Record feedback
@@ -472,31 +524,28 @@ export default function AIAgentPage() {
         return updated;
       });
 
-      // Record revision
-      setRevisionMap((prev) => {
-        const updated = { ...prev, [decision.id]: [...(prev[decision.id] ?? []), revision] };
-        saveRevisionToStorage(decision.id, updated[decision.id]);
-        return updated;
-      });
+      // Build a summary card showing the patch result
+      const hasRevision = !!agentResponse.decisionPatch;
+      const patchMsg = hasRevision
+        ? `\n\n🡆 **Quyết định đã điều chỉnh:**\n${agentResponse.decisionPatch?.action ?? ''} — ${agentResponse.decisionPatch?.rationale ?? ''}`
+        : "";
 
-      // Update decision with latest feedback hint
-      setSimDecisions((prev) =>
-        prev.map((d) =>
-          d.id === decision.id
-            ? { ...d, feedbackCount: (d.feedbackCount ?? 0) + 1, lastFeedback: feedback.slice(0, 80) }
-            : d
-        )
-      );
-
-      // Add AI response to chat
       const aiMsg: AIMessage = {
         id: `fb_ai_${Date.now()}`,
         role: "assistant",
-        content: message,
-        cards: buildRevisionCards(revision),
+        content: agentResponse.message + patchMsg,
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, aiMsg]);
+
+      // Also push a toast for visibility
+      if (agentResponse.decisionPatch) {
+        pushToast({
+          type: "info",
+          title: "Quyết định đã cập nhật",
+          message: `${agentResponse.decisionPatch.action ?? ''} ${agentResponse.decisionPatch.ticker ?? ''}`,
+        });
+      }
     } finally {
       setInlineFeedbackLoading(false);
     }
@@ -747,19 +796,47 @@ export default function AIAgentPage() {
 
   // ── Buy / watchlist ──
 
-  const handleBuyStock = (symbol: string) => {
+  const handleBuyStock = (symbol: string, qty = 10) => {
     const stock = getStockBySymbol(symbol);
     const price = getPrice(symbol);
-    if (!stock || !executeBuy(symbol, stock.name, 10, price)) {
-      pushToast({ type: "alert", title: "Lệnh thất bại", message: "Số dư không đủ hoặc lệnh thất bại." });
+    if (!stock || !price) {
+      pushToast({ type: "alert", title: "Lệnh thất bại", message: "Không tìm thấy giá cho mã này." });
       return;
     }
-    setExecutedBuySymbols((prev) => [...prev, symbol]);
-    pushToast({ type: "success", title: "Mua thành công", message: `Đã đặt lệnh mua 10 CP ${symbol} @ $${price.toFixed(2)}` });
+    const success = executeBuy(symbol, stock.name, qty, price);
+    if (!success) {
+      pushToast({ type: "alert", title: "Lệnh thất bại", message: "Số dư không đủ hoặc lệnh không hợp lệ." });
+      return;
+    }
+    setExecutedBuySymbols((prev) => prev.includes(symbol) ? prev : [...prev, symbol]);
+    pushToast({
+      type: "success",
+      title: "Mua thành công",
+      message: `Đã đặt lệnh mua ${qty} CP ${symbol} @ $${price.toFixed(2)}`,
+    });
+  };
+
+  const handleSellStock = (symbol: string, qty: number) => {
+    const stock = getStockBySymbol(symbol);
+    const price = getPrice(symbol);
+    if (!stock || !price) {
+      pushToast({ type: "alert", title: "Lệnh thất bại", message: "Không tìm thấy giá cho mã này." });
+      return;
+    }
+    const success = executeSell(symbol, stock.name, qty, price);
+    if (!success) {
+      pushToast({ type: "alert", title: "Lệnh thất bại", message: "Không đủ cổ phiếu để bán." });
+      return;
+    }
+    pushToast({
+      type: "success",
+      title: "Bán thành công",
+      message: `Đã đặt lệnh bán ${qty} CP ${symbol} @ $${price.toFixed(2)}`,
+    });
   };
 
   // ── Chat: freely alongside active decision ──
-
+  // Handles general chat, but also detects direct ticker instructions
   const sendMessage = async (msg: string) => {
     if (!msg.trim()) return;
 
@@ -775,61 +852,158 @@ export default function AIAgentPage() {
     setLoading(true);
 
     try {
+      // Build agent context for this message
+      const holdings = Object.values(state.holdings).map((h) => {
+        const livePrice = getPrice(h.symbol) || h.avgPrice;
+        const unrealizedPnL = (livePrice - h.avgPrice) * h.quantity;
+        return {
+          symbol: h.symbol,
+          name: h.name,
+          quantity: h.quantity,
+          avgPrice: h.avgPrice,
+          currentPrice: livePrice,
+          unrealizedPnL,
+          unrealizedPnLPct: h.avgPrice > 0 ? (unrealizedPnL / (h.avgPrice * h.quantity)) * 100 : 0,
+        };
+      });
+      const totalAccountValue = state.cashBalance + holdings.reduce((s, h) => s + h.currentPrice * h.quantity, 0);
+
+      const agentContext = {
+        phase: (currentDecision ? 'decision_active' : 'replay_playing') as 'decision_active' | 'replay_playing',
+        cashBalance: state.cashBalance,
+        holdings,
+        totalAccountValue,
+        activeDecision: currentDecision ? {
+          id: currentDecision.id,
+          title: currentDecision.title,
+          description: currentDecision.description,
+          chips: currentDecision.chips ?? [],
+          pendingChipValue: pendingChipValue ?? undefined,
+          pendingChipLabel: pendingChipValue
+            ? currentDecision.chips?.find((c: DecisionChip) => c.value === pendingChipValue)?.label
+            : undefined,
+        } : undefined,
+        availableTickers: ['AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'META', 'TSLA', 'JPM', 'V', 'SPY', 'QQQ', 'BRK.B', 'XOM', 'UNH', 'DIS'],
+      };
+
       const res = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: msg,
-          context: currentDecision
-            ? `Đang có quyết định chờ: "${currentDecision.title}" — ${currentDecision.description}\n\nAI khuyến nghị: ${currentDecision.aiAdvice}`
-            : undefined,
-        }),
+        body: JSON.stringify({ message: msg, context: agentContext }),
       });
 
       if (!res.ok) throw new Error("API error");
 
-      const data = await res.json();
-      const raw = data.response ?? data.message ?? "";
+      const agentResponse: AgentResponse = await res.json();
 
-      let content = "Đã nhận được phản hồi từ AI.";
-      let cards: Array<{
-        type: "summary" | "risk" | "sentiment" | "technical" | "compare" | "watchlist" | "news" | "order";
-        title: string;
-        content: string;
-        data?: Record<string, string | number>;
-        sentiment?: "bullish" | "bearish" | "neutral";
-      }> = [];
+      // Handle structured response with action
+      if (agentResponse.requestedAction && agentResponse.requestedTicker) {
+        const ticker = agentResponse.requestedTicker;
+        const stock = getStockBySymbol(ticker);
+        const price = stock ? (getPrice(ticker) || stock.price) : 0;
 
-      const cleaned = raw.replace(/<think>[\s\S]*?<\/think>/gi, "");
-      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        try {
-          const parsed = JSON.parse(jsonMatch[0]);
-          if (typeof parsed.message === "string") {
-            content = parsed.message;
+        if (agentResponse.requestedAction === 'Buy' && stock && price > 0) {
+          const qty = agentResponse.requestedQuantity ?? 10;
+          const success = executeBuy(ticker, stock.name, qty, price);
+          const patchMsg: AIMessage = {
+            id: `action_ai_${Date.now()}`,
+            role: "assistant",
+            content: success
+              ? `Đã đặt lệnh **MUA** ${qty} CP ${ticker} @ $${price.toFixed(2)}. Tổng: $${(qty * price).toLocaleString('en-US', { minimumFractionDigits: 2 })}.`
+              : agentResponse.message,
+            timestamp: new Date().toISOString(),
+          };
+          setMessages((prev) => [...prev, patchMsg]);
+          if (success) {
+            pushToast({ type: "success", title: `Mua ${ticker} thành công`, message: `${qty} CP @ $${price.toFixed(2)}` });
           }
-          if (Array.isArray(parsed.cards)) {
-            cards = parsed.cards;
+        } else if (agentResponse.requestedAction === 'Sell' && stock && price > 0) {
+          const holding = state.holdings[ticker];
+          const qty = agentResponse.requestedQuantity ?? (holding?.quantity ?? 0);
+          if (qty <= 0 || !holding) {
+            const errMsg: AIMessage = {
+              id: `action_ai_${Date.now()}`,
+              role: "assistant",
+              content: `Bạn không có vị thế ${ticker} để bán.`,
+              timestamp: new Date().toISOString(),
+            };
+            setMessages((prev) => [...prev, errMsg]);
+          } else {
+            const success = executeSell(ticker, stock.name, qty, price);
+            const patchMsg: AIMessage = {
+              id: `action_ai_${Date.now()}`,
+              role: "assistant",
+              content: success
+                ? `Đã đặt lệnh **BÁN** ${qty} CP ${ticker} @ $${price.toFixed(2)}. Thu về: $${(qty * price).toLocaleString('en-US', { minimumFractionDigits: 2 })}.`
+                : agentResponse.message,
+              timestamp: new Date().toISOString(),
+            };
+            setMessages((prev) => [...prev, patchMsg]);
+            if (success) {
+              pushToast({ type: "success", title: `Bán ${ticker} thành công`, message: `${qty} CP @ $${price.toFixed(2)}` });
+            }
           }
-        } catch {
-          content = cleaned.trim() || content;
+        } else if (agentResponse.requestedAction === 'Watch') {
+          pushToast({ type: "info", title: `Đã thêm ${ticker} vào watchlist`, message: `Theo dõi ${ticker}` });
+          const patchMsg: AIMessage = {
+            id: `action_ai_${Date.now()}`,
+            role: "assistant",
+            content: `Đã thêm **${ticker}** vào danh sách theo dõi.`,
+            timestamp: new Date().toISOString(),
+          };
+          setMessages((prev) => [...prev, patchMsg]);
+        } else {
+          // Fallback to text response
+          const aiMsg: AIMessage = {
+            id: `ai_${Date.now()}`,
+            role: "assistant",
+            content: agentResponse.message,
+            timestamp: new Date().toISOString(),
+          };
+          setMessages((prev) => [...prev, aiMsg]);
         }
-      } else {
-        content = cleaned.trim() || content;
+        return;
       }
 
+      // Handle decision patch (adjust current decision)
+      if (agentResponse.decisionPatch && currentDecision) {
+        const patch = agentResponse.decisionPatch;
+        const actionToChipValue: Record<string, string> = {
+          Buy: 'buy_more',
+          Sell: 'sell_partial',
+          Hold: 'hold',
+          Watch: 'watch',
+          Rebalance: 'rebalance_yes',
+        };
+        const suggestedChipValue = actionToChipValue[patch.action ?? ''];
+        if (suggestedChipValue) {
+          setPendingChipValue(suggestedChipValue);
+          setPendingConfirm(currentDecision);
+        }
+        const patchMsg: AIMessage = {
+          id: `rev_ai_${Date.now()}`,
+          role: "assistant",
+          content: agentResponse.message + `\n\n🡆 **Quyết định đã cập nhật:** ${patch.action ?? ''} — ${patch.rationale ?? ''}`,
+          timestamp: new Date().toISOString(),
+        };
+        setMessages((prev) => [...prev, patchMsg]);
+        pushToast({ type: "info", title: "Quyết định đã điều chỉnh", message: patch.rationale ?? patch.action ?? '' });
+        return;
+      }
+
+      // Plain text response
       const aiMsg: AIMessage = {
-        id: (Date.now() + 1).toString(),
+        id: `ai_${Date.now()}`,
         role: "assistant",
-        content,
-        cards,
+        content: agentResponse.message,
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, aiMsg]);
     } catch {
+      // Fallback to legacy mock
       const mockRes = await getMockAIResponse(msg);
       const aiMsg: AIMessage = {
-        id: (Date.now() + 1).toString(),
+        id: `ai_${Date.now()}`,
         role: "assistant",
         content: mockRes.message,
         cards: mockRes.cards,

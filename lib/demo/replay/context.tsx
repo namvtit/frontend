@@ -581,6 +581,8 @@ function reducer(state: ReplayState, action: Action): ReplayState {
         id: originalDecision.id,
         index: originalDecision.index,
         status: 'pending', // stays pending until confirmed
+        revised: true,
+        revisionCount: (originalDecision.revisionCount ?? 0) + 1,
       };
 
       return {

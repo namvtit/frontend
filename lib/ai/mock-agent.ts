@@ -1,7 +1,7 @@
-import { AIAgentResponse, AICard } from "./types";
+import type { AIAgentResponse, DecisionRevision, DecisionChip } from "./types";
 import { delay } from "@/lib/utils";
-import { getStockBySymbol } from "@/lib/market/mock-data";
-import type { DecisionRevision } from "./types";
+import { getStockBySymbol, STOCKS } from "@/lib/market/mock-data";
+import type { AgentResponse, AgentContext } from "./agent/types";
 
 const MOCK_RESPONSES: Record<string, AIAgentResponse> = {
   default: {
@@ -254,4 +254,241 @@ export async function getMockDecisionFeedback(
       : `\n\nNhấn **"Xác nhận"** để lưu quyết định hoặc gửi phản hồi thêm.`);
 
   return { message, revision };
+}
+
+// ── Structured Agent Response (new unified interface) ──
+
+// Context shape used by the structured mock parser
+interface StructuredContext {
+  activeDecision?: {
+    id: string;
+    title: string;
+    description: string;
+    ticker?: string;
+    recommendedAction?: string;
+    chips?: DecisionChip[];
+    pendingChipValue?: string;
+    pendingChipLabel?: string;
+  };
+  cashBalance?: number;
+  holdings?: Array<{ symbol: string; quantity: number; avgPrice: number }>;
+}
+
+// Ticker extraction from user message
+function extractTickers(text: string): string[] {
+  const upper = text.toUpperCase();
+  return STOCKS
+    .filter((s) => upper.includes(s.symbol) || upper.includes(s.name.toUpperCase()))
+    .map((s) => s.symbol);
+}
+
+// Parse feedback into structured intent + decision patch
+function parseFeedbackToAgentResponse(
+  feedback: string,
+  ctx: StructuredContext
+): AgentResponse {
+  const lower = feedback.toLowerCase();
+  const tickers = extractTickers(feedback);
+
+  // Direct ticker action: "Tôi muốn mua AAPL" / "Mua thêm NVDA"
+  const isBuy = /mua|buy/i.test(lower);
+  const isSell = /bán|sell/i.test(lower);
+  const isHold = /giữ\s*nguyên|giữ\s*vị\s*thế|hold/i.test(lower);
+  const isWatch = /theo\s*dõi|watch|quan\s*sát/i.test(lower);
+
+  // Sentiment modifiers
+  const wantsLowerRisk = /giảm\s*rủi\s*ro|rủi\s*ro\s*thấp|an\s*toàn|thận\s*trọng/i.test(lower);
+  const wantsHigherRisk = /tăng\s*rủi\s*ro|rủi\s*ro\s*cao|mạo\s*hiểm/i.test(lower);
+  const wantsLess = /giảm|bớt|ít\s*hơn|lower/i.test(lower);
+  const wantsMore = /tăng|thêm|nhiều\s*hơn/i.test(lower);
+  const wantsCash = /cần\s*tiền|tạm\s*dừng|dài\s*hạn|tầm\s*nhìn/i.test(lower);
+
+  // "Tôi muốn mua AAPL" — direct request
+  if ((isBuy || isSell) && tickers.length > 0) {
+    const ticker = tickers[0];
+    const stock = getStockBySymbol(ticker);
+    const price = stock?.price ?? 100;
+    const holding = ctx.holdings?.find((h) => h.symbol === ticker);
+
+    // Determine allocation
+    const cash = ctx.cashBalance ?? 100_000;
+    const suggestedPct = wantsLowerRisk ? 5 : wantsHigherRisk ? 15 : 10;
+    const maxPct = 25;
+    const allocationPct = Math.min(suggestedPct, maxPct);
+    const amount = (allocationPct / 100) * (ctx.cashBalance ?? 100_000);
+    const quantity = Math.floor(amount / price);
+
+    const action = isBuy ? 'Buy' : 'Sell';
+    const actualQty = isSell && holding ? Math.min(quantity > 0 ? quantity : holding.quantity, holding.quantity) : quantity;
+
+    return {
+      message: wantsLowerRisk
+        ? `Tôi hiểu bạn muốn ${action === 'Buy' ? 'mua' : 'bán'} ${ticker} với mức cẩn trọng cao hơn. Điều chỉnh khuyến nghị: giảm tỷ trọng vào vùng an toàn.`
+        : `Đã ghi nhận yêu cầu ${action === 'Buy' ? 'mua' : 'bán'} ${ticker}. Tôi chuẩn bị khuyến nghị ${action === 'Buy' ? 'mua' : 'bán'} ${actualQty} cổ phiếu ${ticker} @ $${price.toFixed(2)}.`,
+      detectedIntent: isBuy ? 'buy' : 'sell',
+      requestedTicker: ticker,
+      requestedAction: action,
+      requestedQuantity: actualQty,
+      decisionPatch: {
+        action,
+        ticker,
+        quantity: actualQty,
+        allocationPct,
+        confidence: 75,
+        riskNote: wantsLowerRisk ? 'Giảm rủi ro: ưu tiên bảo toàn vốn.' : undefined,
+        rationale: `${action} ${actualQty} ${ticker} @ $${price.toFixed(2)} — ~${allocationPct}% portfolio.`,
+      },
+    };
+  }
+
+  // "Đổi AAPL sang MSFT" — replace ticker
+  if (/đổi|thay\s*thế|replace|chuyển\s*sang/i.test(lower) && tickers.length >= 1) {
+    const fromTicker = tickers[0];
+    const toTicker = tickers.length > 1 ? tickers[1] : undefined;
+
+    return {
+      message: toTicker
+        ? `Đã ghi nhận yêu cầu thay thế ${fromTicker} bằng ${toTicker}. Chuẩn bị kế hoạch hoán đổi có kiểm soát — bán ${fromTicker} và mua ${toTicker} với cùng giá trị.`
+        : `Đã ghi nhận yêu cầu thay thế. Bạn muốn thay bằng mã cổ phiếu nào?`,
+      detectedIntent: 'replace',
+      requestedTicker: toTicker ?? null,
+      requestedAction: 'Rebalance',
+      decisionPatch: toTicker ? {
+        action: 'Rebalance',
+        replaceTicker: fromTicker,
+        ticker: toTicker,
+        confidence: 80,
+        rationale: `Hoán đổi ${fromTicker} → ${toTicker} có kiểm soát.`,
+      } : undefined,
+    };
+  }
+
+  // "Bán một nửa TSLA" — sell partial
+  if (isSell && /nửa|một\s*phần|half|partial/i.test(lower)) {
+    const ticker = tickers[0];
+    const holding = ctx.holdings?.find((h) => h.symbol === ticker);
+    if (!ticker || !holding) {
+      return { message: `Bạn muốn bán một phần vị thế nào? Vui lòng cho biết mã cổ phiếu.`, detectedIntent: 'sell' };
+    }
+    const halfQty = Math.floor(holding.quantity / 2);
+    return {
+      message: `Đã ghi nhận: bán một nửa (${halfQty} cổ phiếu) ${ticker}. Khuyến nghị: bán ${halfQty} CP ${ticker} để chốt lời một phần.`,
+      detectedIntent: 'sell',
+      requestedTicker: ticker,
+      requestedAction: 'Sell',
+      requestedQuantity: halfQty,
+      decisionPatch: {
+        action: 'Sell',
+        ticker,
+        quantity: halfQty,
+        confidence: 85,
+        rationale: `Bán một nửa vị thế ${ticker}: ${halfQty} cổ phiếu.`,
+      },
+    };
+  }
+
+  // "Tôi không muốn giữ META nữa" — watch/don't buy
+  if (/không\s*muốn\s*giữ|drop|remove|xoá/i.test(lower) && tickers.length > 0) {
+    const ticker = tickers[0];
+    return {
+      message: `Đã ghi nhận: loại bỏ ${ticker} khỏi danh mục. Chuyển sang chế độ theo dõi.`,
+      detectedIntent: 'watch',
+      requestedTicker: ticker,
+      requestedAction: 'Watch',
+      decisionPatch: {
+        action: 'Watch',
+        ticker,
+        confidence: 70,
+        rationale: `Loại bỏ ${ticker} khỏi khuyến nghị mua. Chuyển sang theo dõi.`,
+      },
+    };
+  }
+
+  // "Tôi cần tiền trong 2 tháng" — cash need
+  if (/cần\s*tiền|tạm\s*dừng|rút\s*vốn/i.test(lower)) {
+    return {
+      message: `Đã ghi nhận: bạn cần thanh khoản trong ngắn hạn. Điều chỉnh chiến lược: giảm tỷ trọng cổ phiếu, ưu tiên tiền mặt.`,
+      detectedIntent: 'cash_need',
+      requestedAction: 'Hold',
+      decisionPatch: {
+        action: 'Hold',
+        confidence: 60,
+        riskNote: 'Ưu tiên thanh khoản: giảm position size, không mua thêm.',
+        rationale: 'Cash need ngắn hạn — giảm exposure, tăng reserve.',
+      },
+    };
+  }
+
+  // "Giảm rủi ro" — during active decision
+  if (wantsLowerRisk && ctx.activeDecision) {
+    const { activeDecision } = ctx;
+    const pendingChipValue = activeDecision.pendingChipValue;
+    const chip = pendingChipValue
+      ? activeDecision.chips?.find((c: DecisionChip) => c.value === pendingChipValue)
+      : null;
+
+    // If current chip is buy-related, switch to hold/watch
+    const isBuyChip = chip?.value?.startsWith('buy');
+
+    return {
+      message: `Đã hiểu: bạn muốn giảm rủi ro. Điều chỉnh quyết định từ "${chip?.label ?? 'khuyến nghị hiện tại'}" sang "**Giữ nguyên / Quan sát**" — không mua thêm vào lúc này. Thị trường đang biến động, ưu tiên bảo toàn vốn.`,
+      detectedIntent: 'reduce_risk',
+      requestedAction: 'Hold',
+      decisionPatch: {
+        action: 'Hold',
+        ticker: activeDecision.ticker,
+        confidence: 65,
+        riskNote: '⚠️ Ưu tiên giảm rủi ro: giữ nguyên vị thế, không mua thêm.',
+        rationale: `Phản hồi: giảm rủi ro — chuyển từ ${chip?.label ?? 'mua'} sang giữ quan sát.`,
+      },
+    };
+  }
+
+  // "Tăng rủi ro" / "tăng trưởng"
+  if (wantsHigherRisk && ctx.activeDecision) {
+    return {
+      message: `Đã ghi nhận: bạn muốn tăng rủi ro / tăng trưởng. Có thể tăng tỷ trọng nếu thị trường cho phép.`,
+      detectedIntent: 'increase_risk',
+      requestedAction: 'Buy',
+      decisionPatch: {
+        action: 'Buy',
+        confidence: 80,
+        riskNote: '⚡ Chấp nhận rủi ro cao hơn — tăng exposure khi có cơ hội.',
+        rationale: 'Tăng khẩu vị rủi ro — ưu tiên tăng trưởng.',
+      },
+    };
+  }
+
+  // Default: return acknowledgment with unknown intent
+  return {
+    message: `Đã ghi nhận phản hồi của bạn. Để tôi điều chỉnh khuyến nghị cho phù hợp.`,
+    detectedIntent: 'unknown',
+  };
+}
+
+// Public: structured mock response for the unified agent endpoint
+export async function getMockAgentResponse(
+  userMessage: string,
+  ctx: AgentContext
+): Promise<AgentResponse> {
+  await delay(300 + Math.random() * 300);
+
+  const structuredCtx: StructuredContext = {
+    activeDecision: ctx.activeDecision
+      ? {
+          id: ctx.activeDecision.id,
+          title: ctx.activeDecision.title,
+          description: ctx.activeDecision.description,
+          ticker: ctx.activeDecision.ticker,
+          recommendedAction: ctx.activeDecision.recommendedAction,
+          chips: ctx.activeDecision.chips as DecisionChip[],
+          pendingChipValue: ctx.activeDecision.pendingChipValue,
+          pendingChipLabel: ctx.activeDecision.pendingChipLabel,
+        }
+      : undefined,
+    cashBalance: ctx.cashBalance,
+    holdings: ctx.holdings,
+  };
+
+  return parseFeedbackToAgentResponse(userMessage, structuredCtx);
 }
