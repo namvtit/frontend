@@ -98,6 +98,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(parsed.user);
         setNotifications(parsed.notifications || INITIAL_NOTIFICATIONS);
       }
+      // Seed demo account for first-time visitors
+      const accounts = localStorage.getItem('pisi_accounts');
+      if (!accounts) {
+        localStorage.setItem('pisi_accounts', JSON.stringify([
+          {
+            name: 'Demo User',
+            email: 'demo@finpilot.com',
+            passwordHash: btoa('demo1234'),
+            createdAt: new Date().toISOString(),
+            isDemo: true,
+          },
+        ]));
+      }
     } catch {
       // ignore
     }

@@ -2,416 +2,423 @@
 
 import { useState } from 'react';
 import {
-  Lightbulb,
+  AlertTriangle,
+  Clock,
   TrendingUp,
   TrendingDown,
-  Pause,
-  Clock,
-  Star,
-  Shield,
+  PlusCircle,
+  X,
   ChevronDown,
   ChevronUp,
-  AlertTriangle,
-  X,
 } from 'lucide-react';
+import { useDemo } from '@/lib/demo';
+import { getStockBySymbol } from '@/lib/market/mock-data';
+import { pushToast } from '@/components/ui/toast';
 
 /* ── Types ── */
-interface AiSuggestion {
+interface AiAlert {
   id: string;
   symbol: string;
-  signal: 'BUY' | 'SELL' | 'HOLD' | 'WAIT';
-  confidence: number;
-  riskLevel: 'low' | 'medium' | 'high';
-  entryZone: string;
-  stopLoss: string;
-  takeProfit: string;
-  riskReward: string;
-  reason: string;
-  warning: string;
-  timeframe: string;
+  type: 'danger' | 'warning' | 'info';
+  title: string;
+  description: string;
+  time: string;
+  details: string;
+  action?: 'buy' | 'sell';
 }
 
-/* ── Mock Data ── */
-const MOCK_SUGGESTIONS: AiSuggestion[] = [
+/* ── Initial Demo Alert (1 item) ── */
+const INITIAL_ALERTS: AiAlert[] = [
   {
-    id: 's1',
-    symbol: 'BTCUSDT',
-    signal: 'BUY',
-    confidence: 78,
-    riskLevel: 'medium',
-    entryZone: '$101,200 – $102,500',
-    stopLoss: '$98,800',
-    takeProfit: '$108,500',
-    riskReward: '1:2.4',
-    reason: 'BTC đang tích lũy trên vùng hỗ trợ mạnh $100K, RSI divergence tăng trên khung H4, volume mua tăng dần.',
-    warning: 'Biến động cao quanh vùng $100K. Có thể xảy ra false breakout.',
-    timeframe: 'H4 – D1',
-  },
-  {
-    id: 's2',
-    symbol: 'ETHUSDT',
-    signal: 'WAIT',
-    confidence: 45,
-    riskLevel: 'high',
-    entryZone: '$3,850 – $3,920',
-    stopLoss: '$3,700',
-    takeProfit: '$4,200',
-    riskReward: '1:1.8',
-    reason: 'ETH đang sideways, chưa có tín hiệu breakout rõ ràng. MACD ngang, volume giảm dần.',
-    warning: 'Tín hiệu chưa rõ ràng, chờ xác nhận từ BTC. Không nên vào lệnh lúc này.',
-    timeframe: 'H4',
-  },
-  {
-    id: 's3',
-    symbol: 'XAUUSD',
-    signal: 'SELL',
-    confidence: 72,
-    riskLevel: 'medium',
-    entryZone: '$2,385 – $2,395',
-    stopLoss: '$2,415',
-    takeProfit: '$2,340',
-    riskReward: '1:2.2',
-    reason: 'Vàng đang ở vùng kháng cự mạnh, hình thành double top trên D1. DXY có dấu hiệu hồi phục.',
-    warning: 'Tin tức CPI sắp công bố có thể gây biến động mạnh bất ngờ.',
-    timeframe: 'D1',
-  },
-  {
-    id: 's4',
+    id: 'al_1',
     symbol: 'NVDA',
-    signal: 'BUY',
-    confidence: 85,
-    riskLevel: 'low',
-    entryZone: '$132.00 – $136.00',
-    stopLoss: '$127.50',
-    takeProfit: '$152.00',
-    riskReward: '1:3.1',
-    reason: 'Báo cáo doanh thu kỷ lục, trend tăng mạnh. AI demand tiếp tục tăng. Cup & handle pattern trên weekly.',
-    warning: 'PE ratio cao. Có thể xảy ra profit-taking ngắn hạn sau earnings.',
-    timeframe: 'W1',
-  },
-  {
-    id: 's5',
-    symbol: 'AAPL',
-    signal: 'HOLD',
-    confidence: 60,
-    riskLevel: 'low',
-    entryZone: '$210.00 – $215.00',
-    stopLoss: '$205.00',
-    takeProfit: '$230.00',
-    riskReward: '1:2.5',
-    reason: 'AAPL đang trong uptrend nhẹ. Vision Pro 2 là catalyst tích cực. Giữ vị thế hiện tại.',
-    warning: 'Cạnh tranh mạnh từ Samsung và Meta trong mảng XR.',
-    timeframe: 'D1 – W1',
-  },
+    type: 'warning',
+    title: 'NVDA quá mua ngắn hạn',
+    description: 'Chỉ số RSI của NVDA đạt mức 82.4, vùng quá mua cực hạn trên khung H1.',
+    time: '10:30',
+    details: 'Động lượng tăng điểm quá nhanh trong các phiên gần đây đang đẩy định giá ngắn hạn lên mức rủi ro. Khuyến nghị nhà đầu tư dừng mua đuổi ở vùng giá hiện tại và cân nhắc chốt lời từng phần để bảo toàn lợi nhuận.',
+    action: 'sell',
+  }
 ];
 
-/* ── Action Color & Icon – matches ai-suggestions.tsx getActionColor/getActionIcon ── */
-function getActionColor(signal: string) {
-  switch (signal) {
-    case 'BUY': return 'bg-emerald-600/10 border-emerald-600/30 text-emerald-700 dark:text-emerald-400';
-    case 'SELL': return 'bg-red-600/10 border-red-600/30 text-red-700 dark:text-red-400';
-    case 'HOLD': return 'bg-slate-600/10 border-slate-600/30 text-slate-700 dark:text-slate-400';
-    case 'WAIT': return 'bg-orange-600/10 border-orange-600/30 text-orange-700 dark:text-orange-400';
+/* ── Simulated Alerts Pool ── */
+const SIMULATED_ALERTS_POOL: Omit<AiAlert, 'id' | 'time'>[] = [
+  {
+    symbol: 'TSLA',
+    type: 'danger',
+    title: 'Cảnh báo: TSLA áp lực bán tháo đột biến',
+    description: 'Xuất hiện phân kỳ âm và volume bán tăng vọt 150% so với trung bình 20 phiên.',
+    details: 'Tin tức bất lợi về chuỗi cung ứng linh kiện pin đang đẩy tâm lý giao dịch mã TSLA vào vùng tiêu cực. Vùng hỗ trợ tiếp theo là $175. Khuyến nghị giảm vị thế hoặc dừng lỗ vị thế mua ngắn hạn.',
+    action: 'sell',
+  },
+  {
+    symbol: 'MSFT',
+    type: 'info',
+    title: 'Cơ hội: MSFT kiểm định vùng hỗ trợ',
+    description: 'Đang hình thành mô hình tích lũy quanh đường EMA200 trên khung đồ thị H4.',
+    details: 'Tích lũy khối lượng quanh vùng giá trị hợp lý. Đây là điểm vào tiềm năng cho nhà đầu tư tích sản dài hạn với tỷ lệ Risk/Reward hấp dẫn 1:3.',
+    action: 'buy',
+  },
+  {
+    symbol: 'AAPL',
+    type: 'warning',
+    title: 'Cảnh báo: AAPL áp sát kháng cự lịch sử',
+    description: 'Đang tiến sát vùng đỉnh cũ với volume suy giảm dần báo hiệu lực mua yếu.',
+    details: 'Lực cầu yếu khi tiếp cận vùng đỉnh cũ báo hiệu rủi ro điều chỉnh kỹ thuật ngắn hạn. Cân nhắc thu hẹp quy mô vị thế trước khi có xác nhận dòng tiền bứt phá rõ ràng.',
+    action: 'sell',
+  }
+];
+
+function getAlertColor(type: string) {
+  switch (type) {
+    case 'danger': return 'bg-red-600/10 border-red-600/30 text-red-700 dark:text-red-400';
+    case 'warning': return 'bg-orange-600/10 border-orange-600/30 text-orange-700 dark:text-orange-400';
+    case 'info': return 'bg-blue-600/10 border-blue-600/30 text-blue-700 dark:text-blue-400';
     default: return 'bg-slate-600/10 border-slate-600/30';
   }
 }
 
-function getActionIcon(signal: string) {
-  switch (signal) {
-    case 'BUY': return <TrendingUp className="h-4 w-4" />;
-    case 'SELL': return <TrendingDown className="h-4 w-4" />;
-    case 'HOLD': return <Pause className="h-4 w-4" />;
-    case 'WAIT': return <Clock className="h-4 w-4" />;
-    default: return null;
+function getAlertLabel(type: string) {
+  switch (type) {
+    case 'danger': return 'NGUY HIỂM';
+    case 'warning': return 'CẢNH BÁO';
+    case 'info': return 'THÔNG TIN';
+    default: return type.toUpperCase();
   }
 }
 
-function getRiskLabel(level: string) {
-  switch (level) {
-    case 'low': return { label: 'Thấp', className: 'text-emerald-600 dark:text-emerald-400' };
-    case 'medium': return { label: 'Trung bình', className: 'text-orange-600 dark:text-orange-400' };
-    case 'high': return { label: 'Cao', className: 'text-red-600 dark:text-red-400' };
-    default: return { label: level, className: 'text-muted-foreground' };
-  }
-}
-
-/* ── Suggestion Card – follows the same card style as ai-suggestions.tsx ── */
-function SuggestionCard({ suggestion }: { suggestion: AiSuggestion }) {
-  const [expanded, setExpanded] = useState(false);
-  const risk = getRiskLabel(suggestion.riskLevel);
-
-  return (
-    <div className="group rounded-lg border border-border bg-card p-6 hover:border-primary/50 transition-all hover:shadow-lg">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div>
-          <h3 className="font-semibold text-foreground">{suggestion.symbol}</h3>
-          <span className="text-xs text-muted-foreground">Timeframe: {suggestion.timeframe}</span>
-        </div>
-        {/* Action Badge – same style as ai-suggestions */}
-        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-semibold ${getActionColor(suggestion.signal)}`}>
-          {getActionIcon(suggestion.signal)}
-          {suggestion.signal}
-        </div>
-      </div>
-
-      {/* Confidence – same bar style as ai-suggestions */}
-      <div className="mb-3">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-xs font-medium text-muted-foreground">Confidence</span>
-          <span className="text-xs font-semibold text-foreground">{suggestion.confidence}%</span>
-        </div>
-        <div className="w-full h-1.5 rounded-full bg-secondary overflow-hidden">
-          <div
-            className={`h-full transition-all ${
-              suggestion.confidence >= 85 ? 'bg-emerald-500' :
-              suggestion.confidence >= 70 ? 'bg-amber-500' : 'bg-red-500'
-            }`}
-            style={{ width: `${suggestion.confidence}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Risk Level */}
-      <div className="mb-3 flex items-center gap-2">
-        <span className="text-xs font-medium text-muted-foreground">Risk:</span>
-        <span className={`text-xs font-semibold ${risk.className}`}>{risk.label}</span>
-        <span className="text-xs text-muted-foreground">•</span>
-        <span className="text-xs font-medium text-muted-foreground">R:R</span>
-        <span className="text-xs font-semibold text-foreground">{suggestion.riskReward}</span>
-      </div>
-
-      {/* Key Levels */}
-      <div className="mb-3 flex flex-wrap gap-2">
-        <span className="inline-block px-2 py-1 rounded bg-secondary text-xs font-medium text-foreground">
-          Entry: {suggestion.entryZone}
-        </span>
-        <span className="inline-block px-2 py-1 rounded bg-secondary text-xs font-medium text-red-600 dark:text-red-400">
-          SL: {suggestion.stopLoss}
-        </span>
-        <span className="inline-block px-2 py-1 rounded bg-secondary text-xs font-medium text-emerald-600 dark:text-emerald-400">
-          TP: {suggestion.takeProfit}
-        </span>
-      </div>
-
-      {/* Reasoning */}
-      <p className="text-xs text-muted-foreground italic mb-3">{suggestion.reason}</p>
-
-      {/* Expand for more */}
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
-      >
-        {expanded ? 'Thu gọn' : 'Xem chi tiết'}
-        {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-      </button>
-
-      {expanded && (
-        <div className="mt-3 pt-3 border-t border-border/50 space-y-3 slide-up">
-          {/* Warning */}
-          <div className="flex gap-2 p-3 rounded-lg border border-border">
-            <AlertTriangle className="h-4 w-4 text-orange-500 mt-0.5 shrink-0" />
-            <p className="text-xs text-muted-foreground leading-relaxed">{suggestion.warning}</p>
-          </div>
-
-          {/* Actions */}
-          <div className="flex flex-wrap gap-2">
-            <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-medium text-foreground hover:bg-secondary/50 transition-colors">
-              <Star className="h-3 w-3" /> Thêm Wishlist
-            </button>
-            <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-medium text-foreground hover:bg-secondary/50 transition-colors">
-              <Shield className="h-3 w-3" /> Tạo kế hoạch rủi ro
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ── Detail Modal ── */
-function DetailModal({
-  suggestion,
-  onClose,
-}: {
-  suggestion: AiSuggestion;
-  onClose: () => void;
-}) {
-  const risk = getRiskLabel(suggestion.riskLevel);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" />
-      <div
-        className="relative w-full max-w-lg rounded-lg border border-border bg-card shadow-2xl slide-up overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Modal Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border bg-muted/30">
-          <div className="flex items-center gap-3">
-            <h3 className="font-bold text-foreground">{suggestion.symbol}</h3>
-            <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-semibold ${getActionColor(suggestion.signal)}`}>
-              {getActionIcon(suggestion.signal)}
-              {suggestion.signal}
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-muted-foreground hover:text-foreground transition-colors p-1"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        {/* Modal Body */}
-        <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
-          {/* Confidence */}
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-medium text-muted-foreground">Confidence</span>
-              <span className="text-xs font-semibold text-foreground">{suggestion.confidence}%</span>
-            </div>
-            <div className="w-full h-1.5 rounded-full bg-secondary overflow-hidden">
-              <div
-                className={`h-full transition-all ${
-                  suggestion.confidence >= 85 ? 'bg-emerald-500' :
-                  suggestion.confidence >= 70 ? 'bg-amber-500' : 'bg-red-500'
-                }`}
-                style={{ width: `${suggestion.confidence}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Levels */}
-          <div className="flex flex-wrap gap-2">
-            <span className="inline-block px-2 py-1 rounded bg-secondary text-xs font-medium text-foreground">
-              Entry: {suggestion.entryZone}
-            </span>
-            <span className="inline-block px-2 py-1 rounded bg-secondary text-xs font-medium text-red-600 dark:text-red-400">
-              SL: {suggestion.stopLoss}
-            </span>
-            <span className="inline-block px-2 py-1 rounded bg-secondary text-xs font-medium text-emerald-600 dark:text-emerald-400">
-              TP: {suggestion.takeProfit}
-            </span>
-          </div>
-
-          {/* Risk & R:R */}
-          <div className="flex items-center gap-4 text-sm">
-            <div>
-              <span className="text-muted-foreground">Risk: </span>
-              <span className={`font-semibold ${risk.className}`}>{risk.label}</span>
-            </div>
-            <div>
-              <span className="text-muted-foreground">R:R: </span>
-              <span className="font-semibold text-foreground">{suggestion.riskReward}</span>
-            </div>
-            <div>
-              <span className="text-muted-foreground">TF: </span>
-              <span className="font-semibold text-foreground">{suggestion.timeframe}</span>
-            </div>
-          </div>
-
-          {/* Reason */}
-          <div>
-            <p className="text-xs font-semibold text-foreground mb-1">Lý do phân tích</p>
-            <p className="text-sm text-muted-foreground leading-relaxed">{suggestion.reason}</p>
-          </div>
-
-          {/* Warning */}
-          <div className="flex gap-2 p-3 rounded-lg border border-border">
-            <AlertTriangle className="h-4 w-4 text-orange-500 mt-0.5 shrink-0" />
-            <p className="text-xs text-muted-foreground leading-relaxed">{suggestion.warning}</p>
-          </div>
-        </div>
-
-        {/* Modal Footer */}
-        <div className="p-4 border-t border-border flex flex-wrap gap-2">
-          <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-medium text-foreground hover:bg-secondary/50 transition-colors">
-            <Star className="h-3.5 w-3.5" /> Thêm Wishlist
-          </button>
-          <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-medium text-foreground hover:bg-secondary/50 transition-colors">
-            <Shield className="h-3.5 w-3.5" /> Tạo kế hoạch rủi ro
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ── Main Component ── */
 export function AiTradingSuggestions() {
-  const [selectedSuggestion, setSelectedSuggestion] = useState<AiSuggestion | null>(null);
-  const [filter, setFilter] = useState<'all' | 'BUY' | 'SELL' | 'HOLD' | 'WAIT'>('all');
+  const { state, dispatch, executeBuy, executeSell, getPrice } = useDemo();
+  const [alerts, setAlerts] = useState<AiAlert[]>(INITIAL_ALERTS);
+  const [expandedAlert, setExpandedAlert] = useState<string | null>(null);
+  
+  // Trade Modal State
+  const [tradeModal, setTradeModal] = useState<{ symbol: string; action: 'buy' | 'sell' } | null>(null);
+  const [quantity, setQuantity] = useState('10');
 
-  const filtered = filter === 'all'
-    ? MOCK_SUGGESTIONS
-    : MOCK_SUGGESTIONS.filter((s) => s.signal === filter);
+  // Trade Modal calculations
+  const stockInfo = tradeModal ? getStockBySymbol(tradeModal.symbol) : null;
+  const livePrice = tradeModal ? (getPrice(tradeModal.symbol) || stockInfo?.price || 0) : 0;
+  const qty = parseInt(quantity) || 0;
+  const estimatedValue = qty * livePrice;
+  const fee = estimatedValue * 0.0015;
+  const totalCost = estimatedValue + (tradeModal?.action === 'buy' ? fee : -fee);
+
+  const cashBalance = state.cashBalance;
+  const holding = tradeModal ? state.holdings[tradeModal.symbol] : null;
+  const currentHolding = holding?.quantity ?? 0;
+
+  const isBuyDisabled = tradeModal?.action === 'buy' && totalCost > cashBalance;
+  const isSellDisabled = tradeModal?.action === 'sell' && qty > currentHolding;
+  const isSubmitDisabled = qty <= 0 || (tradeModal?.action === 'buy' ? isBuyDisabled : isSellDisabled);
+
+  // Trigger simulated new alert
+  const handleSimulateAlert = () => {
+    // Find alerts in pool that are not currently displayed
+    const existingSymbols = alerts.map((a) => a.symbol);
+    const availablePool = SIMULATED_ALERTS_POOL.filter((p) => !existingSymbols.includes(p.symbol));
+    
+    if (availablePool.length === 0) {
+      pushToast({
+        title: 'Thông báo',
+        message: 'Tất cả các mã cảnh báo đã được hiển thị.',
+        type: 'info',
+        icon: 'ℹ️',
+      });
+      return;
+    }
+
+    const randomSource = availablePool[Math.floor(Math.random() * availablePool.length)];
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    
+    const newAlert: AiAlert = {
+      ...randomSource,
+      id: `al_${Date.now()}`,
+      time: timeStr,
+    };
+
+    setAlerts((prev) => [newAlert, ...prev]);
+
+    // Trigger toast notification for the new alert
+    pushToast({
+      title: `Cảnh báo AI mới: ${newAlert.symbol}`,
+      message: `${newAlert.title} - ${newAlert.description}`,
+      type: newAlert.type === 'danger' ? 'alert' : 'warning',
+      icon: newAlert.type === 'danger' ? '❌' : '⚠️',
+    });
+
+    dispatch({
+      type: 'PUSH_NOTIFICATION',
+      notification: {
+        title: `Cảnh báo AI: ${newAlert.symbol}`,
+        message: `${newAlert.title} - ${newAlert.description}`,
+        type: newAlert.type === 'danger' ? 'alert' : 'warning',
+        icon: newAlert.type === 'danger' ? '❌' : '⚠️',
+      },
+    });
+  };
+
+  const handleDismissAlert = (id: string) => {
+    const alertToDismiss = alerts.find((a) => a.id === id);
+    if (alertToDismiss) {
+      state.notifications.forEach((n) => {
+        if (!n.read && (n.type === 'alert' || n.type === 'warning') && n.message.includes(alertToDismiss.symbol)) {
+          dispatch({ type: 'MARK_NOTIF_READ', id: n.id });
+        }
+      });
+    }
+    setAlerts((prev) => prev.filter((a) => a.id !== id));
+  };
+
+  const handleExecuteTrade = () => {
+    if (!tradeModal || !stockInfo || isSubmitDisabled) return;
+    const { symbol, action } = tradeModal;
+    const actualName = stockInfo.name;
+
+    if (action === 'buy') {
+      const success = executeBuy(symbol, actualName, qty, livePrice);
+      if (success) {
+        pushToast({
+          title: 'Khớp lệnh mua thành công',
+          message: `Đã mua ${qty} CP ${symbol} từ Cảnh báo AI @ $${livePrice.toFixed(2)}.`,
+          type: 'success',
+          icon: '✅',
+        });
+      } else {
+        pushToast({
+          title: 'Giao dịch thất bại',
+          message: 'Số dư không khả dụng.',
+          type: 'alert',
+          icon: '❌',
+        });
+      }
+    } else {
+      const success = executeSell(symbol, actualName, qty, livePrice);
+      if (success) {
+        pushToast({
+          title: 'Khớp lệnh bán thành công',
+          message: `Đã bán ${qty} CP ${symbol} từ Cảnh báo AI @ $${livePrice.toFixed(2)}.`,
+          type: 'success',
+          icon: '💰',
+        });
+      } else {
+        pushToast({
+          title: 'Giao dịch thất bại',
+          message: 'Số lượng cổ phiếu sở hữu không đủ.',
+          type: 'alert',
+          icon: '❌',
+        });
+      }
+    }
+    setTradeModal(null);
+    setQuantity('10');
+  };
 
   return (
-    <div className="rounded-lg border border-border bg-card overflow-hidden">
-      {/* Header – matches EconomicCalendar / AlertsAndNews style */}
+    <div id="ai-suggestions" className="rounded-lg border border-border bg-card overflow-hidden">
+      {/* Header */}
       <div className="flex items-center justify-between border-b border-border bg-muted/30 p-4">
         <div className="flex items-center gap-2">
-          <Lightbulb className="h-5 w-5 text-amber-500" />
+          <AlertTriangle className="h-5 w-5 text-amber-500" />
           <div>
-            <h2 className="text-lg font-bold text-foreground">Gợi ý giao dịch từ AI</h2>
-            <p className="text-xs text-muted-foreground">{MOCK_SUGGESTIONS.length} gợi ý • Cập nhật lúc 10:30</p>
+            <h2 className="text-lg font-bold text-foreground font-sans">Cảnh báo giao dịch từ AI</h2>
+            <p className="text-xs text-muted-foreground">{alerts.length} cảnh báo • Cập nhật gần nhất</p>
           </div>
         </div>
-        <span className="inline-block px-2 py-1 rounded bg-secondary text-xs font-medium text-foreground">
-          AI DEMO
-        </span>
+        <button
+          onClick={handleSimulateAlert}
+          className="btn btn-secondary text-xs flex items-center gap-1 py-1.5 px-3 rounded-lg border border-border hover:bg-secondary/80 transition-all font-semibold"
+        >
+          <PlusCircle className="h-3.5 w-3.5" />
+          Tạo cảnh báo mới
+        </button>
       </div>
 
-      {/* Filter – uses the same pill style as existing stock tags */}
-      <div className="px-4 pt-4 pb-2 flex gap-2 overflow-x-auto">
-        {(['all', 'BUY', 'SELL', 'HOLD', 'WAIT'] as const).map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap border ${
-              filter === f
-                ? 'bg-primary/10 border-primary/30 text-primary'
-                : 'bg-secondary border-transparent text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            {f === 'all' ? 'Tất cả' : f}
-            {f !== 'all' && (
-              <span className="ml-1 opacity-70">
-                ({MOCK_SUGGESTIONS.filter((s) => s.signal === f).length})
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* Suggestion List */}
+      {/* Alert List */}
       <div className="p-4 space-y-4">
-        {filtered.length > 0 ? (
-          filtered.map((suggestion) => (
-            <SuggestionCard key={suggestion.id} suggestion={suggestion} />
-          ))
-        ) : (
+        {alerts.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground text-sm">
-            Không có gợi ý nào cho bộ lọc này.
+            Không có cảnh báo hoạt động nào.
           </div>
-        )}
-      </div>
+        ) : (
+          alerts.map((alert) => {
+            const isExpanded = expandedAlert === alert.id;
+            return (
+              <div
+                key={alert.id}
+                className="group rounded-lg border border-border bg-card p-5 hover:border-primary/50 transition-all hover:shadow-lg"
+              >
+                {/* Card Header */}
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div>
+                    <h3 className="font-bold text-foreground text-base font-sans">{alert.symbol}</h3>
+                    <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
+                      <Clock className="h-3 w-3" />
+                      <span>Cập nhật lúc {alert.time}</span>
+                    </div>
+                  </div>
+                  <div className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[10px] font-bold ${getAlertColor(alert.type)}`}>
+                    {getAlertLabel(alert.type)}
+                  </div>
+                </div>
+
+                {/* Title & Description */}
+                <h4 className="text-sm font-semibold text-foreground mb-1 leading-snug">{alert.title}</h4>
+                <p className="text-xs text-muted-foreground leading-relaxed mb-3">{alert.description}</p>
+
+                {/* Action Buttons */}
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setExpandedAlert(isExpanded ? null : alert.id)}
+                    className="flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
+                  >
+                    {isExpanded ? 'Thu gọn' : 'Chi tiết cảnh báo'}
+                    {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                  </button>
+
+                  <button
+                    onClick={() => handleDismissAlert(alert.id)}
+                    className="text-xs font-semibold text-muted-foreground hover:text-red-500 transition-colors ml-2"
+                  >
+                    Bỏ qua
+                  </button>
+
+                  {alert.action && (
+                    <button
+                      onClick={() => setTradeModal({ symbol: alert.symbol, action: alert.action as 'buy' | 'sell' })}
+                      className={`ml-auto py-1 px-3.5 rounded text-xs font-bold text-white transition-all shadow-sm ${
+                        alert.action === 'buy' ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-red-500 hover:bg-red-600'
+                      }`}
+                    >
+                      Vào lệnh {alert.action === 'buy' ? 'Mua' : 'Bán'}
+                    </button>
+                  )}
+                </div>
+
+              {/* Expanded details */}
+              {isExpanded && (
+                <div className="mt-4 pt-3 border-t border-border/50 space-y-2.5 slide-up">
+                  <div className="bg-muted/40 p-3 rounded border border-border/40">
+                    <p className="text-xs text-foreground font-semibold mb-1">Chi tiết phân tích:</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">{alert.details}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })
+      )}</div>
 
       {/* Disclaimer */}
       <div className="border-t border-border bg-muted/10 p-3">
         <p className="text-[11px] text-muted-foreground leading-relaxed text-center">
-          <span className="font-semibold">Disclaimer:</span> Gợi ý từ AI chỉ mang tính tham khảo, không phải lời khuyên tài chính.
-          Quyết định đầu tư là trách nhiệm của bạn.
+          <span className="font-semibold">Disclaimer:</span> Các thông báo cảnh báo từ AI chỉ mang tính tham khảo. Đầu tư tài chính có rủi ro lớn.
         </p>
       </div>
 
-      {/* Modal */}
-      {selectedSuggestion && (
-        <DetailModal
-          suggestion={selectedSuggestion}
-          onClose={() => setSelectedSuggestion(null)}
-        />
+      {/* Quick Trade Modal */}
+      {tradeModal && stockInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-2xl slide-up">
+            <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
+              <span className={`w-2.5 h-2.5 rounded-full ${tradeModal.action === 'buy' ? 'bg-emerald-500 animate-pulse' : 'bg-red-500 animate-pulse'}`} />
+              Giao Dịch từ Cảnh Báo AI
+            </h3>
+            
+            <p className="text-xs text-muted-foreground mb-4">
+              Vui lòng xác nhận thông tin đặt lệnh từ cảnh báo thị trường.
+            </p>
+
+            <div className="space-y-3 mb-6 bg-muted/30 p-4 rounded-lg border border-border/50 font-mono text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground font-sans">Loại giao dịch:</span>
+                <span className={`font-bold uppercase ${tradeModal.action === 'buy' ? 'text-emerald-500' : 'text-red-500'}`}>
+                  {tradeModal.action === 'buy' ? 'MUA' : 'BÁN'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground font-sans">Cổ phiếu:</span>
+                <span className="font-bold text-foreground">{tradeModal.symbol} - {stockInfo.name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground font-sans">Giá hiện tại:</span>
+                <span className="font-bold text-foreground">${livePrice.toFixed(2)} USD</span>
+              </div>
+              
+              {tradeModal.action === 'sell' && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground font-sans">Số lượng sở hữu:</span>
+                  <span className="font-medium text-foreground">{currentHolding} CP</span>
+                </div>
+              )}
+
+              {/* Quantity */}
+              <div className="flex items-center justify-between border-t border-border/30 pt-2.5">
+                <span className="text-muted-foreground font-sans">Số lượng:</span>
+                <div className="relative w-28">
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value)}
+                    className="w-full px-2 py-1 bg-background border border-border rounded text-right font-bold text-foreground pr-8 text-sm focus:outline-none focus:border-primary font-mono"
+                  />
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground font-sans">CP</span>
+                </div>
+              </div>
+
+              <div className="flex justify-between border-t border-border/50 pt-2">
+                <span className="text-muted-foreground font-sans">Giá trị ước tính:</span>
+                <span className="font-bold text-foreground">${estimatedValue.toFixed(2)} USD</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground font-sans">Phí giao dịch (0.15%):</span>
+                <span className="font-bold text-foreground">${fee.toFixed(2)} USD</span>
+              </div>
+              
+              <div className="flex justify-between border-t border-border/50 pt-2 text-base font-bold">
+                <span className="text-foreground font-sans">Tổng cộng:</span>
+                <span className={tradeModal.action === 'buy' ? 'text-emerald-500' : 'text-red-500'}>
+                  ${totalCost.toFixed(2)} USD
+                </span>
+              </div>
+
+              {tradeModal.action === 'buy' && (
+                <div className="flex justify-between text-[11px] text-muted-foreground pt-1 border-t border-border/30 border-dashed">
+                  <span className="font-sans">Tiền mặt khả dụng:</span>
+                  <span>${cashBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                </div>
+              )}
+            </div>
+            
+            {tradeModal.action === 'buy' && isBuyDisabled && (
+              <p className="text-xs text-red-500 font-semibold text-center mb-3">Số dư khả dụng không đủ.</p>
+            )}
+            {tradeModal.action === 'sell' && isSellDisabled && (
+              <p className="text-xs text-red-500 font-semibold text-center mb-3">Không đủ cổ phiếu để bán.</p>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setTradeModal(null); setQuantity('10'); }}
+                className="flex-1 py-2.5 rounded-lg border border-border text-foreground hover:bg-secondary text-sm font-semibold transition-colors font-sans"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                onClick={handleExecuteTrade}
+                disabled={isSubmitDisabled}
+                className={`flex-1 py-2.5 rounded-lg text-white text-sm font-semibold transition-all font-sans disabled:opacity-40 disabled:cursor-not-allowed ${
+                  tradeModal.action === 'buy' ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-red-500 hover:bg-red-600'
+                }`}
+              >
+                Đặt lệnh
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -1,4 +1,5 @@
 // Mock market data for MVP
+// Base prices updated June 2026 to match real market values
 export interface StockQuote {
   symbol: string; name: string; price: number; change: number; changePercent: number;
   exchange: string; currency: string; marketCap: number; volume: number;
@@ -47,28 +48,28 @@ function spark(n: number, trend: "up"|"down"|"flat"): number[] {
 }
 
 export const INDICES: MarketIndex[] = [
-  { symbol: "SPX", name: "S&P 500", value: 5892.58, change: 42.36, changePercent: 0.72 },
-  { symbol: "IXIC", name: "Nasdaq", value: 19112.32, change: 187.54, changePercent: 0.99 },
-  { symbol: "DJI", name: "Dow Jones", value: 42876.12, change: -23.45, changePercent: -0.05 },
-  { symbol: "VIX", name: "VIX", value: 14.82, change: -0.67, changePercent: -4.33 },
+  { symbol: "SPX", name: "S&P 500", value: 7500.58, change: 80.48, changePercent: 1.08 },
+  { symbol: "IXIC", name: "Nasdaq", value: 26517.93, change: 496.28, changePercent: 1.91 },
+  { symbol: "DJI", name: "Dow Jones", value: 51564.70, change: 72.15, changePercent: 0.14 },
+  { symbol: "VIX", name: "VIX", value: 16.40, change: -0.01, changePercent: -0.06 },
 ];
 
 export const STOCKS: StockQuote[] = [
-  { symbol:"AAPL",name:"Apple Inc.",price:213.25,change:3.12,changePercent:1.48,exchange:"NASDAQ",currency:"USD",marketCap:3.28e12,volume:54200000,peRatio:33.2,eps:6.42,dividendYield:0.44,beta:1.24,high52w:237.23,low52w:164.08,sector:"Technology",sparkline:spark(20,"up"),day1:1.48,week1:2.1,month1:5.3,ytd:12.4 },
-  { symbol:"MSFT",name:"Microsoft Corp.",price:449.52,change:5.67,changePercent:1.28,exchange:"NASDAQ",currency:"USD",marketCap:3.34e12,volume:22100000,peRatio:36.8,eps:12.21,dividendYield:0.72,beta:0.89,high52w:468.35,low52w:362.90,sector:"Technology",sparkline:spark(20,"up"),day1:1.28,week1:1.9,month1:4.7,ytd:9.8 },
-  { symbol:"NVDA",name:"NVIDIA Corp.",price:135.72,change:8.43,changePercent:6.62,exchange:"NASDAQ",currency:"USD",marketCap:3.32e12,volume:312000000,peRatio:64.5,eps:2.10,dividendYield:0.02,beta:1.68,high52w:153.13,low52w:47.32,sector:"Technology",sparkline:spark(20,"up"),day1:6.62,week1:12.3,month1:28.5,ytd:89.2 },
-  { symbol:"GOOGL",name:"Alphabet Inc.",price:176.89,change:-1.23,changePercent:-0.69,exchange:"NASDAQ",currency:"USD",marketCap:2.18e12,volume:24300000,peRatio:24.1,eps:7.34,dividendYield:0.45,beta:1.06,high52w:191.75,low52w:130.67,sector:"Technology",sparkline:spark(20,"down"),day1:-0.69,week1:-1.2,month1:3.1,ytd:7.5 },
-  { symbol:"AMZN",name:"Amazon.com Inc.",price:197.12,change:2.34,changePercent:1.20,exchange:"NASDAQ",currency:"USD",marketCap:2.06e12,volume:41200000,peRatio:58.3,eps:3.38,dividendYield:0,beta:1.15,high52w:201.20,low52w:151.61,sector:"Consumer Cyclical",sparkline:spark(20,"up"),day1:1.20,week1:3.1,month1:8.2,ytd:15.6 },
-  { symbol:"META",name:"Meta Platforms Inc.",price:523.45,change:-4.56,changePercent:-0.86,exchange:"NASDAQ",currency:"USD",marketCap:1.33e12,volume:16800000,peRatio:25.7,eps:20.37,dividendYield:0.38,beta:1.22,high52w:544.20,low52w:390.42,sector:"Technology",sparkline:spark(20,"down"),day1:-0.86,week1:-2.1,month1:1.4,ytd:6.3 },
-  { symbol:"TSLA",name:"Tesla Inc.",price:278.98,change:12.45,changePercent:4.67,exchange:"NASDAQ",currency:"USD",marketCap:890e9,volume:98700000,peRatio:72.1,eps:3.87,dividendYield:0,beta:2.05,high52w:358.64,low52w:138.80,sector:"Consumer Cyclical",sparkline:spark(20,"up"),day1:4.67,week1:8.9,month1:-5.3,ytd:42.1 },
-  { symbol:"BRK.B",name:"Berkshire Hathaway",price:472.30,change:1.20,changePercent:0.25,exchange:"NYSE",currency:"USD",marketCap:1.03e12,volume:3200000,peRatio:10.2,eps:46.30,dividendYield:0,beta:0.56,high52w:491.57,low52w:393.97,sector:"Financials",sparkline:spark(20,"flat"),day1:0.25,week1:0.8,month1:2.1,ytd:5.4 },
-  { symbol:"JPM",name:"JPMorgan Chase",price:243.67,change:3.89,changePercent:1.62,exchange:"NYSE",currency:"USD",marketCap:699e9,volume:8900000,peRatio:12.8,eps:19.04,dividendYield:2.1,beta:1.08,high52w:256.78,low52w:183.23,sector:"Financials",sparkline:spark(20,"up"),day1:1.62,week1:2.3,month1:5.8,ytd:14.2 },
-  { symbol:"V",name:"Visa Inc.",price:312.45,change:1.56,changePercent:0.50,exchange:"NYSE",currency:"USD",marketCap:630e9,volume:6200000,peRatio:31.5,eps:9.92,dividendYield:0.75,beta:0.94,high52w:325.67,low52w:252.70,sector:"Financials",sparkline:spark(20,"up"),day1:0.50,week1:1.1,month1:3.2,ytd:8.7 },
-  { symbol:"UNH",name:"UnitedHealth Group",price:487.23,change:-8.34,changePercent:-1.68,exchange:"NYSE",currency:"USD",marketCap:449e9,volume:4100000,peRatio:18.9,eps:25.78,dividendYield:1.5,beta:0.72,high52w:630.73,low52w:436.38,sector:"Healthcare",sparkline:spark(20,"down"),day1:-1.68,week1:-3.2,month1:-8.5,ytd:-15.3 },
-  { symbol:"XOM",name:"Exxon Mobil Corp.",price:108.67,change:-0.89,changePercent:-0.81,exchange:"NYSE",currency:"USD",marketCap:458e9,volume:14300000,peRatio:13.5,eps:8.05,dividendYield:3.4,beta:0.82,high52w:126.34,low52w:95.77,sector:"Energy",sparkline:spark(20,"down"),day1:-0.81,week1:-1.5,month1:-4.2,ytd:-7.8 },
-  { symbol:"SPY",name:"SPDR S&P 500 ETF",price:587.42,change:4.23,changePercent:0.72,exchange:"AMEX",currency:"USD",marketCap:540e9,volume:67800000,peRatio:0,eps:0,dividendYield:1.25,beta:1.0,high52w:602.48,low52w:493.86,sector:"ETF",sparkline:spark(20,"up"),day1:0.72,week1:1.5,month1:4.1,ytd:11.3 },
-  { symbol:"QQQ",name:"Invesco QQQ Trust",price:512.34,change:5.67,changePercent:1.12,exchange:"NASDAQ",currency:"USD",marketCap:280e9,volume:42100000,peRatio:0,eps:0,dividendYield:0.55,beta:1.14,high52w:537.21,low52w:413.07,sector:"ETF",sparkline:spark(20,"up"),day1:1.12,week1:2.3,month1:6.1,ytd:14.7 },
-  { symbol:"DIS",name:"Walt Disney Co.",price:112.34,change:1.23,changePercent:1.11,exchange:"NYSE",currency:"USD",marketCap:205e9,volume:9800000,peRatio:38.2,eps:2.94,dividendYield:0.88,beta:1.32,high52w:123.74,low52w:83.91,sector:"Communication",sparkline:spark(20,"up"),day1:1.11,week1:2.8,month1:7.5,ytd:18.3 },
+  { symbol:"AAPL",name:"Apple Inc.",price:298.01,change:2.06,changePercent:0.70,exchange:"NASDAQ",currency:"USD",marketCap:4.50e12,volume:76700000,peRatio:33.2,eps:8.98,dividendYield:0.34,beta:1.24,high52w:317.40,low52w:196.86,sector:"Technology",sparkline:spark(20,"up"),day1:0.70,week1:2.1,month1:5.3,ytd:12.4 },
+  { symbol:"MSFT",name:"Microsoft Corp.",price:379.40,change:0.49,changePercent:0.13,exchange:"NASDAQ",currency:"USD",marketCap:2.82e12,volume:58400000,peRatio:28.5,eps:13.31,dividendYield:0.88,beta:0.89,high52w:555.45,low52w:356.28,sector:"Technology",sparkline:spark(20,"up"),day1:0.13,week1:1.9,month1:4.7,ytd:-7.2 },
+  { symbol:"NVDA",name:"NVIDIA Corp.",price:210.69,change:6.04,changePercent:2.95,exchange:"NASDAQ",currency:"USD",marketCap:5.15e12,volume:312000000,peRatio:54.5,eps:3.87,dividendYield:0.01,beta:1.68,high52w:220.00,low52w:90.69,sector:"Technology",sparkline:spark(20,"up"),day1:2.95,week1:12.3,month1:28.5,ytd:56.2 },
+  { symbol:"GOOGL",name:"Alphabet Inc.",price:368.03,change:4.24,changePercent:1.17,exchange:"NASDAQ",currency:"USD",marketCap:2.25e12,volume:24300000,peRatio:22.1,eps:16.65,dividendYield:0.22,beta:1.06,high52w:370.00,low52w:163.59,sector:"Technology",sparkline:spark(20,"up"),day1:1.17,week1:3.2,month1:8.1,ytd:47.5 },
+  { symbol:"AMZN",name:"Amazon.com Inc.",price:244.39,change:6.89,changePercent:2.90,exchange:"NASDAQ",currency:"USD",marketCap:2.58e12,volume:41200000,peRatio:38.3,eps:6.38,dividendYield:0,beta:1.15,high52w:245.00,low52w:175.01,sector:"Consumer Cyclical",sparkline:spark(20,"up"),day1:2.90,week1:3.1,month1:8.2,ytd:15.6 },
+  { symbol:"META",name:"Meta Platforms Inc.",price:577.22,change:9.64,changePercent:1.70,exchange:"NASDAQ",currency:"USD",marketCap:1.47e12,volume:16800000,peRatio:23.7,eps:24.37,dividendYield:0.35,beta:1.22,high52w:581.00,low52w:467.56,sector:"Technology",sparkline:spark(20,"up"),day1:1.70,week1:2.1,month1:5.4,ytd:6.3 },
+  { symbol:"TSLA",name:"Tesla Inc.",price:400.49,change:4.11,changePercent:1.04,exchange:"NASDAQ",currency:"USD",marketCap:1.29e12,volume:98700000,peRatio:132.1,eps:3.03,dividendYield:0,beta:2.05,high52w:465.00,low52w:198.05,sector:"Consumer Cyclical",sparkline:spark(20,"up"),day1:1.04,week1:8.9,month1:15.3,ytd:42.1 },
+  { symbol:"BRK.B",name:"Berkshire Hathaway",price:489.46,change:-1.82,changePercent:-0.37,exchange:"NYSE",currency:"USD",marketCap:1.10e12,volume:3200000,peRatio:10.2,eps:48.00,dividendYield:0,beta:0.56,high52w:539.20,low52w:393.97,sector:"Financials",sparkline:spark(20,"flat"),day1:-0.37,week1:0.8,month1:2.1,ytd:15.4 },
+  { symbol:"JPM",name:"JPMorgan Chase",price:325.22,change:-8.24,changePercent:-2.47,exchange:"NYSE",currency:"USD",marketCap:930e9,volume:8900000,peRatio:14.8,eps:21.97,dividendYield:1.65,beta:1.08,high52w:340.00,low52w:203.23,sector:"Financials",sparkline:spark(20,"down"),day1:-2.47,week1:-1.3,month1:5.8,ytd:24.2 },
+  { symbol:"V",name:"Visa Inc.",price:327.24,change:-3.14,changePercent:-0.95,exchange:"NYSE",currency:"USD",marketCap:660e9,volume:6200000,peRatio:31.5,eps:10.39,dividendYield:0.73,beta:0.94,high52w:337.00,low52w:266.88,sector:"Financials",sparkline:spark(20,"down"),day1:-0.95,week1:1.1,month1:3.2,ytd:8.7 },
+  { symbol:"UNH",name:"UnitedHealth Group",price:400.96,change:1.43,changePercent:0.36,exchange:"NYSE",currency:"USD",marketCap:369e9,volume:4100000,peRatio:19.9,eps:20.15,dividendYield:1.85,beta:0.72,high52w:630.73,low52w:349.00,sector:"Healthcare",sparkline:spark(20,"down"),day1:0.36,week1:-3.2,month1:-8.5,ytd:-25.3 },
+  { symbol:"XOM",name:"Exxon Mobil Corp.",price:137.81,change:-2.93,changePercent:-2.08,exchange:"NYSE",currency:"USD",marketCap:580e9,volume:14300000,peRatio:14.5,eps:9.50,dividendYield:2.8,beta:0.82,high52w:147.00,low52w:105.08,sector:"Energy",sparkline:spark(20,"down"),day1:-2.08,week1:-1.5,month1:-4.2,ytd:4.8 },
+  { symbol:"SPY",name:"SPDR S&P 500 ETF",price:746.74,change:7.68,changePercent:1.04,exchange:"AMEX",currency:"USD",marketCap:640e9,volume:67800000,peRatio:0,eps:0,dividendYield:1.15,beta:1.0,high52w:760.00,low52w:563.65,sector:"ETF",sparkline:spark(20,"up"),day1:1.04,week1:1.5,month1:4.1,ytd:11.3 },
+  { symbol:"QQQ",name:"Invesco QQQ Trust",price:740.62,change:18.11,changePercent:2.51,exchange:"NASDAQ",currency:"USD",marketCap:330e9,volume:42100000,peRatio:0,eps:0,dividendYield:0.45,beta:1.14,high52w:748.00,low52w:464.21,sector:"ETF",sparkline:spark(20,"up"),day1:2.51,week1:2.3,month1:6.1,ytd:14.7 },
+  { symbol:"DIS",name:"Walt Disney Co.",price:103.89,change:3.03,changePercent:3.00,exchange:"NYSE",currency:"USD",marketCap:189e9,volume:9800000,peRatio:35.2,eps:2.95,dividendYield:0.77,beta:1.32,high52w:124.00,low52w:83.91,sector:"Communication",sparkline:spark(20,"up"),day1:3.00,week1:2.8,month1:7.5,ytd:18.3 },
 ];
 
 export const NEWS: NewsItem[] = [

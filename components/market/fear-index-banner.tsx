@@ -1,9 +1,18 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { AlertCircle } from 'lucide-react';
 
-const MOCK_FEAR_INDEX = {
+interface FearIndexData {
+  value: number;
+  rating: string;
+  description: string;
+  change: number;
+}
+
+const DEFAULT_FEAR_INDEX: FearIndexData = {
   value: 32,
+  rating: 'fear',
   description: 'Thị trường đang có dấu hiệu thận trọng trong bối cảnh bất ổn kinh tế. Các nhà đầu tư nên cân nhắc phân bổ tài sản phòng thủ.',
   change: -8.5,
 };
@@ -16,18 +25,46 @@ function getColor(value: number) {
   return '#22c55e';
 }
 
-function getLabel(value: number) {
-  if (value <= 25) return 'Extreme Fear';
-  if (value <= 45) return 'Fear';
-  if (value <= 55) return 'Neutral';
-  if (value <= 75) return 'Greed';
-  return 'Extreme Greed';
+function getLabel(rating: string, value: number) {
+  const normalized = rating.toLowerCase();
+  if (normalized === 'extreme fear') return 'Cực kỳ Sợ hãi';
+  if (normalized === 'fear') return 'Sợ hãi';
+  if (normalized === 'neutral') return 'Trung lập';
+  if (normalized === 'greed') return 'Tham lam';
+  if (normalized === 'extreme greed') return 'Cực kỳ Tham lam';
+  
+  if (value <= 25) return 'Cực kỳ Sợ hãi';
+  if (value <= 45) return 'Sợ hãi';
+  if (value <= 55) return 'Trung lập';
+  if (value <= 75) return 'Tham lam';
+  return 'Cực kỳ Tham lam';
 }
 
 export function FearIndexBanner() {
-  const { value, description, change } = MOCK_FEAR_INDEX;
+  const [data, setData] = useState<FearIndexData>(DEFAULT_FEAR_INDEX);
+
+  useEffect(() => {
+    fetch('/api/market/fear-greed')
+      .then((res) => {
+        if (!res.ok) throw new Error('API response error');
+        return res.json();
+      })
+      .then((fetched) => {
+        setData({
+          value: fetched.value,
+          rating: fetched.rating,
+          description: fetched.description,
+          change: fetched.change,
+        });
+      })
+      .catch((err) => {
+        console.warn('Could not load real Fear & Greed index:', err);
+      });
+  }, []);
+
+  const { value, rating, description, change } = data;
   const color = getColor(value);
-  const label = getLabel(value);
+  const label = getLabel(rating, value);
 
   // SVG donut chart parameters
   const radius = 52;

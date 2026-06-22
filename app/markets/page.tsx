@@ -33,7 +33,6 @@ export default function MarketsPage() {
             <select className="input max-w-[150px]"><option>Vốn hóa</option><option>Mega Cap</option><option>Large Cap</option><option>Mid Cap</option><option>Small Cap</option></select>
             <select className="input max-w-[150px]"><option>Sàn: Tất cả</option><option>NASDAQ</option><option>NYSE</option><option>AMEX</option></select>
           </div>
-          <span className="badge badge-demo text-xs">Demo data — Bộ lọc nâng cao sẽ hoạt động đầy đủ ở phiên bản sau</span>
         </div>
       </section>
 

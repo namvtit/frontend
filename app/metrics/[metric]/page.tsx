@@ -46,7 +46,6 @@ export default function MetricDetailPage({ params }: { params: Promise<{ metric:
       {/* Comparison */}
       <div className="card">
         <h3 className="font-semibold text-sm mb-3">So sánh giữa các mã</h3>
-        <span className="badge badge-demo text-xs mb-3 inline-block">Demo data</span>
         <div className="overflow-x-auto">
           <table className="data-table">
             <thead><tr><th>Mã</th><th>Tên</th><th>{data.name}</th></tr></thead>

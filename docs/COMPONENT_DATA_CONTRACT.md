@@ -49,7 +49,7 @@ interface PredictionChartData {
     value: number;  // Giá đóng cửa (VD: 182.45)
   }>;
 
-  // Mảng giá dự đoán AI (14 ngày tới, bỏ weekend)
+  // Mảng giá dự đoán AI (60 ngày tới, bỏ weekend)
   // ⚠️ Phần tử đầu tiên PHẢI trùng với phần tử cuối của historical (điểm nối)
   prediction: Array<{
     time: string;   // Format: "YYYY-MM-DD"
@@ -400,7 +400,7 @@ GET /api/ai/prediction/{symbol}
   "predChange": 3.87,
   "predChangePercent": 2.02,
   "trend": "bullish",
-  "predictionDays": 14,
+  "predictionDays": 60,
   "historicalDays": 60,
   "updatedAt": "2026-06-03T07:00:00.000Z"
 }

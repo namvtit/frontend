@@ -12,7 +12,13 @@ export default function NewsPage() {
 
   const filtered = NEWS.filter((n) => {
     if (cat !== "Tất cả" && n.category !== CAT_MAP[cat]) return false;
-    if (search && !n.title.toLowerCase().includes(search.toLowerCase())) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      if (!n.title.toLowerCase().includes(q) &&
+          !n.summary.toLowerCase().includes(q) &&
+          !n.symbols.some((s) => s.toLowerCase().includes(q)) &&
+          !n.category.toLowerCase().includes(q)) return false;
+    }
     return true;
   });
 

@@ -1,16 +1,64 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth/auth-context";
 
 export default function RegisterPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const router = useRouter();
+  const { login } = useAuth();
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
+
+    if (password.length < 6) {
+      setError("Mật khẩu phải có ít nhất 6 ký tự.");
+      return;
+    }
+
     setLoading(true);
-    setTimeout(() => { window.location.href = "/dashboard"; }, 800);
+
+    try {
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        setError("Email không hợp lệ.");
+        setLoading(false);
+        return;
+      }
+
+      // Check if account already exists in localStorage
+      const accounts = JSON.parse(localStorage.getItem("pisi_accounts") || "[]");
+      if (accounts.some((a: { email: string }) => a.email === email)) {
+        setError("Email này đã được đăng ký. Vui lòng đăng nhập.");
+        setLoading(false);
+        return;
+      }
+
+      // Create account in localStorage
+      const displayName = name.trim() || email.split("@")[0];
+      const newAccount = {
+        name: displayName.charAt(0).toUpperCase() + displayName.slice(1),
+        email,
+        // Password is stored for demo purposes only — do not use for real auth
+        passwordHash: btoa(password),
+        createdAt: new Date().toISOString(),
+      };
+      accounts.push(newAccount);
+      localStorage.setItem("pisi_accounts", JSON.stringify(accounts));
+
+      // Log the user in
+      await login(email, password);
+      router.push("/dashboard");
+    } catch {
+      setError("Đã xảy ra lỗi. Vui lòng thử lại.");
+      setLoading(false);
+    }
   };
 
   return (
@@ -21,7 +69,7 @@ export default function RegisterPage() {
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
           </div>
           <h1 className="text-2xl font-bold">Tạo tài khoản</h1>
-          <p className="text-sm text-muted-foreground mt-1">Tham gia PISI Markets để theo dõi thị trường thông minh</p>
+          <p className="text-sm text-muted-foreground mt-1">Tham gia FinPilot để theo dõi thị trường thông minh</p>
         </div>
 
         <form onSubmit={handleRegister} className="card space-y-4">

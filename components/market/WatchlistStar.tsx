@@ -1,12 +1,13 @@
 "use client";
-import { useState } from "react";
+import { useDemo } from "@/lib/demo";
 
-export default function WatchlistStar({ symbol, initialActive = false }: { symbol: string; initialActive?: boolean }) {
-  const [active, setActive] = useState(initialActive);
+export default function WatchlistStar({ symbol }: { symbol: string }) {
+  const { isInWatchlist, toggleWatchlist } = useDemo();
+  const active = isInWatchlist(symbol);
 
   return (
     <button
-      onClick={(e) => { e.stopPropagation(); setActive(!active); }}
+      onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleWatchlist(symbol); }}
       className="p-1 hover:scale-110 transition-transform"
       title={active ? "Xóa khỏi Watchlist" : "Thêm vào Watchlist"}
     >

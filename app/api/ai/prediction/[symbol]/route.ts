@@ -43,10 +43,10 @@ function generateMockPrediction(symbol: string) {
   upperBand.push({ time: historical[historical.length - 1].time, value: lastPrice });
   lowerBand.push({ time: historical[historical.length - 1].time, value: lastPrice });
 
-  // 14 ngày dự đoán
+  // 60 ngày dự đoán
   let predPrice = lastPrice;
   const trend = rng(seed * 7) > 0.45 ? 1 : -1;
-  for (let i = 1; i <= 14; i++) {
+  for (let i = 1; i <= 60; i++) {
     const d = new Date(lastDate);
     d.setDate(d.getDate() + i);
     if (d.getDay() === 0 || d.getDay() === 6) continue;
@@ -73,7 +73,7 @@ function generateMockPrediction(symbol: string) {
     predChange: Math.round(predChange * 100) / 100,
     predChangePercent: Math.round(predChangePercent * 100) / 100,
     trend: predChange >= 0 ? "bullish" : "bearish",
-    predictionDays: 14,
+    predictionDays: 60,
     historicalDays: 60,
   };
 }

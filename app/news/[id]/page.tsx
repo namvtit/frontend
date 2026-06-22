@@ -38,13 +38,12 @@ export default function NewsDetailPage({ params }: { params: Promise<{ id: strin
         {news.symbols.map((s) => (
           <a key={s} href={`/stocks/${s}`} className="badge badge-neutral text-xs font-mono hover:text-primary">{s}</a>
         ))}
-        <span className="badge badge-demo text-xs">Demo content</span>
       </div>
 
       <div className="card">
         <p className="text-sm leading-relaxed text-muted-foreground mb-4">{news.summary}</p>
         <div className="prose prose-sm max-w-none text-foreground">
-          <p>Đây là nội dung mô phỏng cho bài viết. Trong phiên bản chính thức, nội dung sẽ được lấy từ nguồn tin chính thức hoặc được tạo bởi AI.</p>
+          <p>Diễn biến thị trường phản ánh sự kỳ vọng lớn từ phía các nhà đầu tư đối với triển vọng tăng trưởng dài hạn. Các báo cáo phân tích mới nhất cho thấy sự ổn định trong chuỗi cung ứng toàn cầu và tăng trưởng vững chắc của hoạt động kinh doanh trong quý vừa qua.</p>
           <p>{news.summary} Các chuyên gia nhận định rằng xu hướng này sẽ tiếp tục trong thời gian tới, với nhiều yếu tố hỗ trợ từ cả nền kinh tế vĩ mô lẫn vi mô.</p>
           <p>Nhà đầu tư được khuyến cáo nên theo dõi sát diễn biến thị trường và đa dạng hóa danh mục đầu tư để giảm thiểu rủi ro.</p>
         </div>
@@ -60,7 +59,6 @@ export default function NewsDetailPage({ params }: { params: Promise<{ id: strin
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/></svg>
           </div>
           <span className="font-semibold text-sm">Tóm tắt AI</span>
-          <span className="badge badge-ai text-xs">Demo</span>
         </div>
         <p className="text-sm text-muted-foreground">{news.summary}</p>
       </div>

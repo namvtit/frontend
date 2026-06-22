@@ -10,21 +10,52 @@ import { EconomicCalendar } from '@/components/market/economic-calendar';
 import { useRouter } from 'next/navigation';
 import { TrendingUp, TrendingDown, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
+import { useDemo } from '@/lib/demo';
+import { useLivePrices } from '@/lib/market/use-live-prices';
+import { formatNumber } from '@/lib/utils';
 
 export default function HomePage() {
   const router = useRouter();
+  const { state } = useDemo();
+  const { getFlash } = useLivePrices();
 
-  const topGainers = [...STOCKS].sort((a, b) => b.changePercent - a.changePercent).slice(0, 3);
-  const topLosers = [...STOCKS].sort((a, b) => a.changePercent - b.changePercent).slice(0, 3);
+  // Sort stocks using live prices for accurate top gainers/losers
+  const stocksWithLivePrices = STOCKS.map((s) => {
+    const cached = state.marketCache[s.symbol.toUpperCase()];
+    return {
+      ...s,
+      changePercent: cached?.changePercent ?? s.changePercent,
+      change: cached?.change ?? s.change,
+      price: cached?.price ?? s.price,
+    };
+  });
 
-  const MOCK_METRICS = [
-    { id: '1', name: 'S&P 500 Index', value: '5,892.58', change: 0.72 },
-    { id: '2', name: 'Nasdaq-100 Index', value: '19,112.32', change: 0.99 },
-    { id: '3', name: 'Dow Jones Industrial', value: '42,876.12', change: -0.05 },
-    { id: '4', name: 'Russell 2000', value: '2,245.67', change: -0.45 },
-    { id: '5', name: 'VIX Volatility Index', value: '14.23', change: -5.23 },
-    { id: '6', name: 'US Treasury 10Y', value: '4.12%', change: 0.08 },
+  const topGainers = [...stocksWithLivePrices].sort((a, b) => b.changePercent - a.changePercent).slice(0, 3);
+  const topLosers = [...stocksWithLivePrices].sort((a, b) => a.changePercent - b.changePercent).slice(0, 3);
+
+  // Market indices with live data
+  const MARKET_METRICS = INDICES.map((idx) => {
+    const cached = state.marketCache[idx.symbol];
+    const value = cached?.price ?? idx.value;
+    const change = cached?.changePercent ?? idx.changePercent;
+    const isLive = !!cached;
+    return {
+      id: idx.symbol,
+      name: idx.name,
+      value: formatNumber(value, 2),
+      change,
+      isLive,
+      flash: getFlash(idx.symbol),
+    };
+  });
+
+  // Extra metrics (Russell 2000, 10Y) remain static for now
+  const EXTRA_METRICS = [
+    { id: 'RUT', name: 'Russell 2000', value: '2,245.67', change: -0.45, isLive: false, flash: null as 'up' | 'down' | null },
+    { id: 'TNX', name: 'US Treasury 10Y', value: '4.12%', change: 0.08, isLive: false, flash: null as 'up' | 'down' | null },
   ];
+
+  const ALL_METRICS = [...MARKET_METRICS, ...EXTRA_METRICS];
 
   return (
     <div className="min-h-screen bg-background fade-in">
@@ -38,20 +69,24 @@ export default function HomePage() {
             <h1 className="text-4xl font-bold text-foreground sm:text-5xl">
               Market Overview
             </h1>
-            <p className="mt-2 text-lg text-muted-foreground">
+            <p className="mt-2 text-lg text-muted-foreground flex items-center gap-2">
               Real-time market data, insights, and analysis
+              <span className="live-dot" />
+              <span className="text-xs font-semibold text-emerald-500 uppercase">Live</span>
             </p>
           </div>
 
           {/* Market Metrics Grid */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {MOCK_METRICS.map((metric) => (
+            {ALL_METRICS.map((metric) => (
               <MarketMetric
                 key={metric.id}
                 label={metric.name}
                 value={metric.value}
                 change={metric.change}
                 icon={<BarChart3 className="h-6 w-6" />}
+                isLive={metric.isLive}
+                flash={metric.flash}
               />
             ))}
           </div>
@@ -70,6 +105,7 @@ export default function HomePage() {
               <div className="mb-6 flex items-center gap-2">
                 <TrendingUp className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
                 <h2 className="text-2xl font-bold text-foreground">Top Gainers</h2>
+                <span className="live-dot ml-1" />
               </div>
               <div className="space-y-3">
                 {topGainers.map((stock) => (
@@ -90,6 +126,7 @@ export default function HomePage() {
               <div className="mb-6 flex items-center gap-2">
                 <TrendingDown className="h-6 w-6 text-red-600 dark:text-red-400" />
                 <h2 className="text-2xl font-bold text-foreground">Top Losers</h2>
+                <span className="live-dot ml-1" />
               </div>
               <div className="space-y-3">
                 {topLosers.map((stock) => (
@@ -177,7 +214,7 @@ export default function HomePage() {
       <footer className="border-t border-border bg-card">
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">© 2026 PISI Markets. All rights reserved.</p>
+            <p className="text-sm text-muted-foreground">© 2026 FinPilot. All rights reserved.</p>
             <div className="flex gap-6">
               <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Terms</a>
               <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Privacy</a>
