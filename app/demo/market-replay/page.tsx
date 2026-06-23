@@ -720,6 +720,15 @@ const WelcomePanel = memo(function WelcomePanel() {
 // ── Main Page ──
 
 export default function MarketReplayPage() {
+  return (
+    <ReplayProvider>
+      <MarketReplayContent />
+      <CompletionModalWrapper />
+    </ReplayProvider>
+  );
+}
+
+function CompletionModalWrapper() {
   const { state } = useReplay();
   const { phase } = state;
   const [showCompletion, setShowCompletion] = useState(false);
@@ -730,16 +739,9 @@ export default function MarketReplayPage() {
     }
   }, [phase]);
 
-  const handlePlayAgain = () => {
-    setShowCompletion(false);
-  };
+  if (!showCompletion) return null;
 
-  return (
-    <ReplayProvider>
-      <MarketReplayContent />
-      {showCompletion && <CompletionModal onPlayAgain={handlePlayAgain} />}
-    </ReplayProvider>
-  );
+  return <CompletionModal onPlayAgain={() => setShowCompletion(false)} />;
 }
 
 function MarketReplayContent() {
