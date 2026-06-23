@@ -40,6 +40,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# Windows ADS metadata (downloaded from browser / UNC paths)
+*Zone.Identifier*
+
 # Playwright / promo recording outputs
 /artifacts/
 /ads-output/

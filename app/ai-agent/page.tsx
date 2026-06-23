@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { getMockAIResponse, SUGGESTED_PROMPTS, getMockDecisionFeedback, getMockAgentResponse } from "@/lib/ai/mock-agent";
 import type {
   AIMessage,
@@ -30,7 +30,7 @@ import {
 
 // ── Draft Order ──
 
-type DraftAction = "Buy" | "Sell" | "Hold" | "Watch";
+type DraftAction = "Buy" | "Sell" | "Hold" | "Watch" | "Withdraw" | "Rebalance";
 
 interface DraftOrder {
   id: string;
@@ -41,32 +41,108 @@ interface DraftOrder {
   price: number;
   total: number;
   reason: string;
+  riskNote?: string;
+}
+
+// ── VND / currency helpers ──
+
+function formatVnd(amount: number): string {
+  return amount.toLocaleString("vi-VN");
+}
+
+function parseVndAmount(msg: string): number | null {
+  const lower = msg.toLowerCase();
+  // "5 triệu", "10m", "20 triệu", "50M"
+  const millionMatch = lower.match(/(\d+(?:[.,]\d+)?)\s*(triệu|m|tỷ|tỉ)/);
+  if (millionMatch) {
+    const num = parseFloat(millionMatch[1].replace(",", "."));
+    const unit = millionMatch[2];
+    if (unit === "tỷ" || unit === "tỉ") return num * 1_000_000_000;
+    return num * 1_000_000;
+  }
+  // Plain number — assume VND
+  const plain = lower.match(/(\d[\d.,]*)\s*vnd?/);
+  if (plain) {
+    return parseFloat(plain[1].replace(/[.,]/g, ""));
+  }
+  // Bare digit string (e.g. "Rút 5000000" → 5,000,000 VND)
+  const bare = lower.match(/^[\s\S]*?(\d+)/);
+  if (bare) {
+    return parseFloat(bare[1]);
+  }
+  return null;
+}
+
+// ── Quantity parser ──
+// Detects "10 cổ", "5 shares", "100 cp" from the raw message
+function parseQuantity(msg: string): number | null {
+  const lower = msg.toLowerCase();
+  // Vietnamese: "10 cổ", "5 cp", "3 cổ phiếu"
+  const coMatch = lower.match(/(\d+)\s*(?:cổ|cổ phiếu|cp|cổ\s*phiếu)/);
+  if (coMatch) return parseInt(coMatch[1], 10);
+  // English: "10 shares", "5 share"
+  const shareMatch = lower.match(/(\d+)\s*shares?/);
+  if (shareMatch) return parseInt(shareMatch[1], 10);
+  return null;
 }
 
 // Parse a free-text message into a DraftOrder if it contains a clear intent.
 // Returns null if the message is a question or too vague.
+// Returns { intent: 'capital_change', amount: number } | DraftOrder | null
 function parseDraftOrder(
   msg: string,
   cashBalance: number,
   holdings: Record<string, { symbol: string; name: string; quantity: number; avgPrice: number }>,
   getPrice: (s: string) => number
-): DraftOrder | null {
+): { intent: "capital_change"; amount: number } | { intent: "withdraw"; amount: number } | DraftOrder | null {
   const lower = msg.toLowerCase();
+  const upper = msg.toUpperCase();
 
+  // ── Capital / withdraw intent ──
+  // Must check before generic intent detection
+  const isCapitalSet =
+    /^(tôi có|tôi muốn đầu tư|đổi vốn|vốn)[\s:,]*/i.test(msg) ||
+    /(?:có|đầu tư|vốn)\s*(?:là|thành)?\s*(\d+)/.test(msg);
+  const isWithdraw = /\brút\s*(\d+(?:\s*triệu|\s*m\b)?)\b|rút\s*tiền|rút\s*vốn/i.test(lower);
+  const isTopup = /nạp\s*thêm|thêm\s*vốn|thêm\s*tiền/i.test(lower);
+
+  // "Tôi có 50 triệu", "Đổi vốn thành 100 triệu", "Tôi muốn đầu tư 30 triệu"
+  if (isCapitalSet && !isWithdraw) {
+    const vndAmount = parseVndAmount(msg);
+    if (vndAmount !== null) {
+      return { intent: "capital_change", amount: vndAmount };
+    }
+  }
+
+  // "Rút 5 triệu"
+  if (isWithdraw && !isTopup) {
+    const vndAmount = parseVndAmount(msg);
+    if (vndAmount !== null) {
+      return { intent: "withdraw", amount: vndAmount };
+    }
+    // "Rút tiền" without amount → default 10% of cash
+    return { intent: "withdraw", amount: cashBalance * 0.1 };
+  }
+
+  // ── Trade / action intents ──
   const isBuy = /^(mua|buy)\b/i.test(lower);
   const isSell = /^bán|sell\b/i.test(lower);
   const isHold = /\bgiữ?\b|\bhold\b/i.test(lower);
   const isWatch = /\btheo\s*dõi|\bwatch\b|\bquan\s*sát\b/i.test(lower);
-  const isReduceRisk = /giảm\s*rủi\s*ro|rủi\s*ro\s*thấp|an\s*toàn|thận\s*trọng/i.test(lower);
+  const isReduceRisk =
+    /giảm\s*rủi\s*ro|rủi\s*ro\s*thấp|an\s*toàn|thận\s*trọng|bảo\s*toàn/i.test(lower);
+  const isIncreaseRisk =
+    /tăng\s*rủi\s*ro|tăng\s*trưởng|mạo\s*hiểm|chấp\s*nhận\s*rủi\s*ro/i.test(lower);
+  const isSuggest = /gợi\s*ý|suggest|khuyên|nên\s*mua|mã\s*nào|an\s*toàn\s*mã/i.test(lower);
 
   // Extract ticker from known symbols
-  const upper = msg.toUpperCase();
   const tickers = STOCKS.filter(
     (s) => upper.includes(s.symbol) || upper.includes(s.name.toUpperCase())
   );
 
   if (!isBuy && !isSell && !isHold && !isWatch) return null;
 
+  // ── Hold / Watch / Reduce Risk ──
   if (isHold || isWatch || isReduceRisk) {
     if (isReduceRisk) {
       const firstTicker = tickers[0]?.symbol;
@@ -75,13 +151,14 @@ function parseDraftOrder(
       const price = getPrice(firstTicker) || stock?.price || 100;
       return {
         id: `draft_${Date.now()}`,
-        action: "Hold",
+        action: "Hold" as DraftAction,
         ticker: firstTicker,
         name: stock?.name ?? firstTicker,
         quantity: 0,
         price,
         total: 0,
         reason: "Giảm rủi ro: giữ nguyên vị thế, không mua thêm. Ưu tiên bảo toàn vốn.",
+        riskNote: "⚠️ Giảm rủi ro — giữ nguyên position, không tăng exposure.",
       };
     }
     if (tickers.length === 0) return null;
@@ -90,7 +167,7 @@ function parseDraftOrder(
     const price = getPrice(ticker) || stock?.price || 100;
     return {
       id: `draft_${Date.now()}`,
-      action: isHold ? "Hold" : "Watch",
+      action: (isHold ? "Hold" : "Watch") as DraftAction,
       ticker,
       name: stock?.name ?? ticker,
       quantity: 0,
@@ -108,36 +185,80 @@ function parseDraftOrder(
   const price = getPrice(ticker) || stock?.price || 100;
   const holding = holdings[ticker];
 
+  // ── Sell ──
   if (isSell) {
     if (!holding || holding.quantity === 0) return null;
-    const qty = Math.min(holding.quantity, Math.max(1, Math.floor(holding.quantity / 2)));
+    // "Bán một nửa"
+    const isHalf = /một\s*nửa|nửa\s*bán|bán\s*nửa/i.test(lower);
+    let qty: number;
+    if (isHalf) {
+      qty = Math.max(1, Math.floor(holding.quantity / 2));
+    } else {
+      // Default: 25% of held quantity
+      qty = Math.max(1, Math.floor(holding.quantity * 0.25));
+    }
+    qty = Math.min(holding.quantity, qty);
     const total = qty * price;
     return {
       id: `draft_${Date.now()}`,
-      action: "Sell",
+      action: "Sell" as DraftAction,
       ticker,
       name: holding.name,
       quantity: qty,
       price,
       total,
-      reason: `Bán một phần vị thế ${ticker}: ${qty} cổ phiếu. Thu về ~$${total.toLocaleString("en-US", { minimumFractionDigits: 2 })}.`,
+      reason: isHalf
+        ? `Bán một nửa vị thế ${ticker}: ${qty} cổ phiếu. Thu về ~$${total.toLocaleString("en-US", { minimumFractionDigits: 2 })}.`
+        : `Bán ${qty} cổ phiếu ${ticker} (~25% vị thế). Thu về ~$${total.toLocaleString("en-US", { minimumFractionDigits: 2 })}.`,
     };
   }
 
+  // ── Buy ──
   if (isBuy) {
-    const budget = cashBalance * 0.10;
-    const qty = Math.max(1, Math.floor(budget / price));
-    const total = qty * price;
-    if (total > cashBalance) return null;
+    // Try explicit quantity first: "Mua 10 cổ AAPL", "Buy 5 shares MSFT"
+    const explicitQty = parseQuantity(msg);
+    // Try VND budget: "Mua AAPL 5 triệu", "Mua NVDA 10m"
+    const vndBudget = parseVndAmount(msg);
+
+    let qty: number;
+    let total: number;
+
+    if (explicitQty !== null) {
+      qty = explicitQty;
+      total = qty * price;
+    } else if (vndBudget !== null) {
+      // Convert VND to USD (rough: 1 USD ≈ 24,500 VND)
+      const usdBudget = vndBudget / 24_500;
+      qty = Math.max(1, Math.floor(usdBudget / price));
+      total = qty * price;
+    } else {
+      // Default: 10% of cash
+      const budget = cashBalance * 0.10;
+      qty = Math.max(1, Math.floor(budget / price));
+      total = qty * price;
+    }
+
+    if (total > cashBalance) {
+      qty = Math.max(1, Math.floor(cashBalance / price));
+      total = qty * price;
+    }
+
+    const budgetLabel =
+      explicitQty !== null
+        ? `${explicitQty} cổ`
+        : vndBudget !== null
+        ? `~${formatVnd(vndBudget)} VND`
+        : "~10% cash";
+
     return {
       id: `draft_${Date.now()}`,
-      action: "Buy",
+      action: "Buy" as DraftAction,
       ticker,
       name: stock?.name ?? ticker,
       quantity: qty,
       price,
       total,
-      reason: `Mua ${qty} cổ phiếu ${ticker} @ $${price.toFixed(2)} — ~10% cash. Tổng: $${total.toLocaleString("en-US", { minimumFractionDigits: 2 })}.`,
+      reason: `Mua ${qty} cổ phiếu ${ticker} @ $${price.toFixed(2)} — ${budgetLabel}. Tổng: $${total.toLocaleString("en-US", { minimumFractionDigits: 2 })}.`,
     };
   }
 
@@ -353,7 +474,7 @@ function chipValueToStatus(value: string): DecisionStatus {
 // ── Page component ──
 
 export default function AIAgentPage() {
-  const { toggleWatchlist, isInWatchlist, executeBuy, executeSell, getPrice, state } = useDemo();
+  const { toggleWatchlist, isInWatchlist, executeBuy, executeSell, executeWithdraw, updateCashBalance, resetDemo, getPrice, state, dispatch } = useDemo();
 
   const [messages, setMessages] = useState<AIMessage[]>([]);
   const [input, setInput] = useState("");
@@ -376,6 +497,12 @@ export default function AIAgentPage() {
 
   // ── Draft order state ──
   const [draftOrder, setDraftOrder] = useState<DraftOrder | null>(null);
+
+  // Auto-scroll messages container to bottom
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  });
 
   const HISTORY_KEY = "pisi_decision_history";
   const FEEDBACK_KEY = "pisi_decision_feedback";
@@ -436,6 +563,35 @@ export default function AIAgentPage() {
   };
 
   const handleSelectOption = (value: string, label: string) => {
+    // Capital chip handlers (outside survey flow)
+    if (value === "reset_demo") {
+      resetDemo();
+      pushToast({ type: "info", title: "Đã reset demo", message: "Danh mục đã được khôi phục về trạng thái ban đầu." });
+      const resetMsg: AIMessage = {
+        id: `reset_${Date.now()}`,
+        role: "assistant",
+        content: "Đã reset toàn bộ danh mục demo về trạng thái ban đầu.",
+        timestamp: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, resetMsg]);
+      return;
+    }
+    if (value.startsWith("topup_")) {
+      const amount = parseInt(value.replace("topup_", ""), 10);
+      if (!isNaN(amount) && amount > 0) {
+        const newBalance = updateCashBalance(amount);
+        pushToast({ type: "success", title: "Đã nạp tiền", message: `Đã thêm $${amount.toLocaleString()} USD vào tài khoản.` });
+        const topupMsg: AIMessage = {
+          id: `topup_${Date.now()}`,
+          role: "assistant",
+          content: `Đã cộng thêm **$${amount.toLocaleString()} USD** vào tài khoản. Số dư hiện tại: **$${newBalance.toLocaleString()} USD**.`,
+          timestamp: new Date().toISOString(),
+        };
+        setMessages((prev) => [...prev, topupMsg]);
+      }
+      return;
+    }
+
     const userMsg: AIMessage = {
       id: `s_a_${Date.now()}`,
       role: "user",
@@ -766,8 +922,14 @@ export default function AIAgentPage() {
     } else if (action === "Watch") {
       toggleWatchlist(ticker);
       pushToast({ type: "info", title: `Đã thêm ${ticker} vào watchlist`, message: `Theo dõi ${ticker}` });
+    } else if (action === "Withdraw") {
+      const success = executeWithdraw(price);
+      if (!success) {
+        pushToast({ type: "alert", title: "Rút tiền thất bại", message: "Không thể rút số tiền này." });
+      } else {
+        pushToast({ type: "success", title: "Rút tiền thành công", message: `Đã rút $${price.toFixed(2)} USD.` });
+      }
     } else {
-      pushToast({ type: "info", title: "Đã ghi nhận", message: `Giữ nguyên vị thế ${ticker}.` });
     }
 
     const aiMsg: AIMessage = {
@@ -906,23 +1068,75 @@ export default function AIAgentPage() {
     setMessages((prev) => [...prev, userMsg]);
 
     // ── Synchronous: parse intent first, no loading state ──
-    let draft: DraftOrder | null = null;
-    try {
-      draft = parseDraftOrder(msg, state.cashBalance, state.holdings, getPrice);
-    } catch (e) {
-      console.error("[parseDraftOrder] error:", e);
+    const parsed = parseDraftOrder(msg, state.cashBalance, state.holdings, getPrice);
+
+    // Capital change: "Tôi có 50 triệu"
+    if (parsed && "intent" in parsed && parsed.intent === "capital_change") {
+      setInput("");
+      const usdAmount = parsed.amount / 24_500;
+      const hasHoldings = Object.keys(state.holdings).length > 0;
+      if (hasHoldings) {
+        const aiMsg: AIMessage = {
+          id: `cap_confirm_${Date.now()}`,
+          role: "assistant",
+          content: `Bạn đang có danh mục đang hoạt động. Bạn muốn:\n- **Nạp thêm ${formatVnd(parsed.amount)} VND** (tăng số dư)\n- **Rút vốn** (tạo lệnh rút)\n- **Reset phiên mô phỏng** (bắt đầu lại từ đầu)`,
+          chips: [
+            { label: `Nạp thêm ${formatVnd(parsed.amount)} VND`, value: `topup_${parsed.amount}` },
+            { label: `Reset phiên mô phỏng`, value: "reset_demo" },
+          ],
+          timestamp: new Date().toISOString(),
+        };
+        setMessages((prev) => [...prev, aiMsg]);
+      } else {
+        dispatch({ type: "UPDATE_SETTINGS", cashBalance: usdAmount });
+        const aiMsg: AIMessage = {
+          id: `cap_set_${Date.now()}`,
+          role: "assistant",
+          content: `Đã thiết lập số dư: **$${usdAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })} USD** (~${formatVnd(parsed.amount)} VND). Số dư khả dụng: **${formatVnd(usdAmount * 24_500)} VND**. Bạn có thể bắt đầu đặt lệnh.`,
+          timestamp: new Date().toISOString(),
+        };
+        setMessages((prev) => [...prev, aiMsg]);
+      }
+      return;
     }
 
-    if (draft) {
+    // Withdraw: "Rút 5 triệu"
+    if (parsed && "intent" in parsed && parsed.intent === "withdraw") {
+      setInput("");
+      const usdAmount = Math.min(parsed.amount / 24_500, state.cashBalance);
+      const draft: DraftOrder = {
+        id: `draft_${Date.now()}`,
+        action: "Withdraw",
+        ticker: "—",
+        name: "Rút tiền",
+        quantity: 0,
+        price: 1,
+        total: usdAmount,
+        reason: `Yêu cầu rút ~${formatVnd(parsed.amount)} VND (~$${usdAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })} USD) từ tài khoản demo.`,
+        riskNote: "⚠️ Rút tiền: khoản này sẽ được trừ khỏi số dư sau khi xác nhận.",
+      };
       setDraftOrder(draft);
       const aiMsg: AIMessage = {
         id: `draft_created_${Date.now()}`,
         role: "assistant",
-        content: draft.reason + "\n\nXem lệnh dự thảo bên dưới và nhấn **Xác nhận** để thực hiện, hoặc **Hủy** để bỏ qua.",
+        content: draft.reason + "\n\nXem lệnh rút bên dưới và nhấn **Xác nhận** để thực hiện, hoặc **Hủy** để bỏ qua.",
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, aiMsg]);
-      return; // synchronous path — NO setLoading(true) called
+      return;
+    }
+
+    // Trade draft
+    if (parsed && !("intent" in parsed)) {
+      setDraftOrder(parsed);
+      const aiMsg: AIMessage = {
+        id: `draft_created_${Date.now()}`,
+        role: "assistant",
+        content: parsed.reason + "\n\nXem lệnh dự thảo bên dưới và nhấn **Xác nhận** để thực hiện, hoặc **Hủy** để bỏ qua.",
+        timestamp: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, aiMsg]);
+      return;
     }
 
     // ── Async: LLM path — set loading only here ──
@@ -1045,8 +1259,8 @@ export default function AIAgentPage() {
       // No structured action — try mock fallback before giving up
       if (!agentResponse) {
         const fallbackDraft = parseDraftOrder(msg, state.cashBalance, state.holdings, getPrice);
-        if (fallbackDraft) {
-          setDraftOrder(fallbackDraft);
+        if (fallbackDraft && "reason" in fallbackDraft) {
+          setDraftOrder(fallbackDraft as DraftOrder);
           const aiMsg: AIMessage = {
             id: `fallback_draft_${Date.now()}`,
             role: "assistant",
@@ -1414,8 +1628,12 @@ export default function AIAgentPage() {
           {/* Active decision bar */}
           <ActiveDecisionBar />
 
-          {/* Draft order card */}
-          {draftOrder && <DraftOrderCard draft={draftOrder} />}
+          {/* Draft order card — shown above messages so it's never buried */}
+          {draftOrder && (
+            <div id="draft-card-anchor">
+              <DraftOrderCard draft={draftOrder} />
+            </div>
+          )}
 
           {/* Completed decisions accordion */}
           <CompletedSection />
@@ -1570,6 +1788,7 @@ export default function AIAgentPage() {
               </div>
             )}
           </div>
+          <div ref={messagesEndRef} />
 
           {/* Chat input */}
           <div className="flex gap-2.5 mt-auto">

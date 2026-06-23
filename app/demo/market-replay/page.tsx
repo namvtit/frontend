@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
 import Link from 'next/link';
 import { ReplayProvider, useReplay } from '@/lib/demo/replay';
-import { FinalReplayReport } from '@/components/replay';
+import { FinalReplayReport, CompletionModal } from '@/components/replay';
 import { cn } from '@/lib/utils';
 import {
   TrendingUp,
@@ -28,6 +28,7 @@ import {
   Play,
   Pause,
   Clock,
+  Award,
 } from 'lucide-react';
 
 // ── Constants ──
@@ -492,7 +493,15 @@ const ChatFeed = memo(function ChatFeed() {
           </div>
         )}
         
-        {phase === 'replay-complete' && <div className="mt-3"><FinalReplayReport /></div>}
+        {phase === 'replay-complete' && (
+          <div className="mt-3 p-4 bg-muted/30 rounded-xl border border-border">
+            <div className="flex items-center gap-2 mb-2">
+              <Award className="w-4 h-4 text-primary" />
+              <span className="text-sm font-semibold text-foreground">1-Year Simulation Complete</span>
+            </div>
+            <FinalReplayReport />
+          </div>
+        )}
       </div>
       <div className="shrink-0 p-3 border-t border-border">
         <ChatInput />
@@ -711,9 +720,24 @@ const WelcomePanel = memo(function WelcomePanel() {
 // ── Main Page ──
 
 export default function MarketReplayPage() {
+  const { state } = useReplay();
+  const { phase } = state;
+  const [showCompletion, setShowCompletion] = useState(false);
+
+  useEffect(() => {
+    if (phase === 'replay-complete') {
+      setShowCompletion(true);
+    }
+  }, [phase]);
+
+  const handlePlayAgain = () => {
+    setShowCompletion(false);
+  };
+
   return (
     <ReplayProvider>
       <MarketReplayContent />
+      {showCompletion && <CompletionModal onPlayAgain={handlePlayAgain} />}
     </ReplayProvider>
   );
 }

@@ -30,6 +30,8 @@ type Action =
   | { type: 'RESET' }
   | { type: 'BUY'; symbol: string; name: string; quantity: number; price: number }
   | { type: 'SELL'; symbol: string; name: string; quantity: number; price: number }
+  | { type: 'WITHDRAW'; quantity: number }
+  | { type: 'UPDATE_CASH_BALANCE'; amount: number }
   | { type: 'ADD_WATCHLIST'; symbol: string }
   | { type: 'REMOVE_WATCHLIST'; symbol: string }
   | { type: 'PUSH_NOTIFICATION'; notification: Omit<DemoNotification, 'id' | 'read' | 'time'> }
@@ -162,6 +164,30 @@ function reducer(state: DemoState, action: Action): DemoState {
         transactions: [tx, ...state.transactions],
         notifications: [notif, ...state.notifications],
       };
+    }
+
+    case 'WITHDRAW': {
+      const { quantity } = action;
+      if (quantity <= 0 || quantity > state.cashBalance) return state;
+      const notif: DemoNotification = {
+        id: `n_${Date.now()}`,
+        title: 'Rút tiền thành công',
+        message: `Đã rút $${quantity.toFixed(2)} USD. Số dư còn lại: $${(state.cashBalance - quantity).toFixed(2)}.`,
+        type: 'info',
+        icon: '💸',
+        time: 'Vừa xong',
+        read: false,
+      };
+      return {
+        ...state,
+        cashBalance: state.cashBalance - quantity,
+        notifications: [notif, ...state.notifications],
+      };
+    }
+
+    case 'UPDATE_CASH_BALANCE': {
+      const newBalance = Math.max(0, state.cashBalance + action.amount);
+      return { ...state, cashBalance: newBalance };
     }
 
     case 'ADD_WATCHLIST': {
@@ -342,6 +368,8 @@ interface DemoContextType {
   // Convenience methods
   executeBuy: (symbol: string, name: string, quantity: number, price: number) => boolean;
   executeSell: (symbol: string, name: string, quantity: number, price: number) => boolean;
+  executeWithdraw: (quantity: number) => boolean;
+  updateCashBalance: (amount: number) => number;
   addToWatchlist: (symbol: string) => void;
   removeFromWatchlist: (symbol: string) => void;
   toggleWatchlist: (symbol: string) => void;
@@ -452,6 +480,24 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     [state.holdings]
   );
 
+  const executeWithdraw = useCallback(
+    (quantity: number): boolean => {
+      if (quantity <= 0 || quantity > state.cashBalance) return false;
+      dispatch({ type: 'WITHDRAW', quantity });
+      return true;
+    },
+    [state.cashBalance]
+  );
+
+  const updateCashBalance = useCallback(
+    (amount: number): number => {
+      const newBalance = Math.max(0, state.cashBalance + amount);
+      dispatch({ type: 'UPDATE_CASH_BALANCE', amount });
+      return newBalance;
+    },
+    [state.cashBalance]
+  );
+
   const addToWatchlist = useCallback(
     (symbol: string) => dispatch({ type: 'ADD_WATCHLIST', symbol }),
     []
@@ -502,6 +548,8 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       dispatch,
       executeBuy,
       executeSell,
+      executeWithdraw,
+      updateCashBalance,
       addToWatchlist,
       removeFromWatchlist,
       toggleWatchlist,
@@ -512,7 +560,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       resetDemo,
       getPrice,
     }),
-    [state, portfolio, dispatch, executeBuy, executeSell, addToWatchlist, removeFromWatchlist, toggleWatchlist, isInWatchlist, pushChat, clearChat, setAIProfile, resetDemo, getPrice]
+    [state, portfolio, dispatch, executeBuy, executeSell, executeWithdraw, updateCashBalance, addToWatchlist, removeFromWatchlist, toggleWatchlist, isInWatchlist, pushChat, clearChat, setAIProfile, resetDemo, getPrice]
   );
 
   return <DemoContext.Provider value={ctx}>{children}</DemoContext.Provider>;
