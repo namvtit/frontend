@@ -13,6 +13,7 @@ import Link from 'next/link';
 import { useDemo } from '@/lib/demo';
 import { useLivePrices } from '@/lib/market/use-live-prices';
 import { formatNumber } from '@/lib/utils';
+import { DemoPitchCTA } from '@/components/home/demo-pitch-cta';
 
 export default function HomePage() {
   const router = useRouter();
@@ -90,6 +91,13 @@ export default function HomePage() {
               />
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Demo Pitch CTA */}
+      <section className="border-b border-border">
+        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+          <DemoPitchCTA />
         </div>
       </section>
 

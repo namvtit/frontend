@@ -12,7 +12,7 @@ import type {
   DecisionChip,
 } from "@/lib/ai/types";
 import { useDemo } from "@/lib/demo";
-import { getStockBySymbol } from "@/lib/market/mock-data";
+import { getStockBySymbol, STOCKS } from "@/lib/market/mock-data";
 import { pushToast } from "@/components/ui/toast";
 import type { AgentResponse } from "@/lib/ai/agent/types";
 import {
@@ -27,6 +27,122 @@ import {
   Send,
   MessageSquarePlus,
 } from "lucide-react";
+
+// ── Draft Order ──
+
+type DraftAction = "Buy" | "Sell" | "Hold" | "Watch";
+
+interface DraftOrder {
+  id: string;
+  action: DraftAction;
+  ticker: string;
+  name: string;
+  quantity: number;
+  price: number;
+  total: number;
+  reason: string;
+}
+
+// Parse a free-text message into a DraftOrder if it contains a clear intent.
+// Returns null if the message is a question or too vague.
+function parseDraftOrder(
+  msg: string,
+  cashBalance: number,
+  holdings: Record<string, { symbol: string; name: string; quantity: number; avgPrice: number }>,
+  getPrice: (s: string) => number
+): DraftOrder | null {
+  const lower = msg.toLowerCase();
+
+  const isBuy = /^(mua|buy)\b/i.test(lower);
+  const isSell = /^bán|sell\b/i.test(lower);
+  const isHold = /\bgiữ?\b|\bhold\b/i.test(lower);
+  const isWatch = /\btheo\s*dõi|\bwatch\b|\bquan\s*sát\b/i.test(lower);
+  const isReduceRisk = /giảm\s*rủi\s*ro|rủi\s*ro\s*thấp|an\s*toàn|thận\s*trọng/i.test(lower);
+
+  // Extract ticker from known symbols
+  const upper = msg.toUpperCase();
+  const tickers = STOCKS.filter(
+    (s) => upper.includes(s.symbol) || upper.includes(s.name.toUpperCase())
+  );
+
+  if (!isBuy && !isSell && !isHold && !isWatch) return null;
+
+  if (isHold || isWatch || isReduceRisk) {
+    if (isReduceRisk) {
+      const firstTicker = tickers[0]?.symbol;
+      if (!firstTicker) return null;
+      const stock = getStockBySymbol(firstTicker);
+      const price = getPrice(firstTicker) || stock?.price || 100;
+      return {
+        id: `draft_${Date.now()}`,
+        action: "Hold",
+        ticker: firstTicker,
+        name: stock?.name ?? firstTicker,
+        quantity: 0,
+        price,
+        total: 0,
+        reason: "Giảm rủi ro: giữ nguyên vị thế, không mua thêm. Ưu tiên bảo toàn vốn.",
+      };
+    }
+    if (tickers.length === 0) return null;
+    const ticker = tickers[0].symbol;
+    const stock = getStockBySymbol(ticker);
+    const price = getPrice(ticker) || stock?.price || 100;
+    return {
+      id: `draft_${Date.now()}`,
+      action: isHold ? "Hold" : "Watch",
+      ticker,
+      name: stock?.name ?? ticker,
+      quantity: 0,
+      price,
+      total: 0,
+      reason: isHold
+        ? "Giữ nguyên vị thế — không có hành động cần thiết."
+        : "Chuyển sang chế độ theo dõi — không mua vào lúc này.",
+    };
+  }
+
+  if (tickers.length === 0) return null;
+  const ticker = tickers[0].symbol;
+  const stock = getStockBySymbol(ticker);
+  const price = getPrice(ticker) || stock?.price || 100;
+  const holding = holdings[ticker];
+
+  if (isSell) {
+    if (!holding || holding.quantity === 0) return null;
+    const qty = Math.min(holding.quantity, Math.max(1, Math.floor(holding.quantity / 2)));
+    const total = qty * price;
+    return {
+      id: `draft_${Date.now()}`,
+      action: "Sell",
+      ticker,
+      name: holding.name,
+      quantity: qty,
+      price,
+      total,
+      reason: `Bán một phần vị thế ${ticker}: ${qty} cổ phiếu. Thu về ~$${total.toLocaleString("en-US", { minimumFractionDigits: 2 })}.`,
+    };
+  }
+
+  if (isBuy) {
+    const budget = cashBalance * 0.10;
+    const qty = Math.max(1, Math.floor(budget / price));
+    const total = qty * price;
+    if (total > cashBalance) return null;
+    return {
+      id: `draft_${Date.now()}`,
+      action: "Buy",
+      ticker,
+      name: stock?.name ?? ticker,
+      quantity: qty,
+      price,
+      total,
+      reason: `Mua ${qty} cổ phiếu ${ticker} @ $${price.toFixed(2)} — ~10% cash. Tổng: $${total.toLocaleString("en-US", { minimumFractionDigits: 2 })}.`,
+    };
+  }
+
+  return null;
+}
 
 // ── Survey configuration ──
 
@@ -114,7 +230,7 @@ function getSurveyRecommendation(answers: Record<string, string>) {
     if (risk === "low") {
       symbol = "SPY";
       title = "Quỹ chỉ số S&P 500 ETF (SPY)";
-      content = "Phân bổ rủi ro thấp nhất bằng cách sở hữu 500 tập đoàn lớn nhất Hoa Kỳ. Sinh lời bền vững.";
+      content = "Phân bổ rủi ro thấp nhất bằng cách sở hữu 500 tập đoàn lớn nhất nước Mỹ. Sinh lời bền vững.";
       data = { "Phân bổ khuyên dùng": "50% Vốn", "Kỳ vọng": "Tích sản dài hạn", "Khuyến nghị": "MUA" };
     } else {
       symbol = "JPM";
@@ -138,8 +254,6 @@ function getSurveyRecommendation(answers: Record<string, string>) {
 
   return { symbol, title, content, data };
 }
-
-// ── Decision generation templates ──
 
 type DecisionTemplate = Omit<SimulationDecision, "id" | "status" | "resolvedAt">;
 
@@ -226,8 +340,6 @@ function buildDecisionTemplates(answers: Record<string, string>): DecisionTempla
   ];
 }
 
-// ── Helper: resolve chip value to decision status ──
-
 function chipValueToStatus(value: string): DecisionStatus {
   if (value === "hold" || value === "wait" || value === "keep_all" || value === "rebalance_skip" || value === "ignore" || value === "pass" || value === "watch") {
     return "skipped";
@@ -243,30 +355,28 @@ function chipValueToStatus(value: string): DecisionStatus {
 export default function AIAgentPage() {
   const { toggleWatchlist, isInWatchlist, executeBuy, executeSell, getPrice, state } = useDemo();
 
-  // ── Message state ──
   const [messages, setMessages] = useState<AIMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // ── Survey state ──
-  const [surveyStep, setSurveyStep] = useState(0); // 0 = not started
+  const [surveyStep, setSurveyStep] = useState(0);
   const [surveyAnswers, setSurveyAnswers] = useState<Record<string, string>>({});
   const [executedBuySymbols, setExecutedBuySymbols] = useState<string[]>([]);
 
-  // ── Decision state ──
   const [simDecisions, setSimDecisions] = useState<SimulationDecision[]>([]);
   const [completedDecisions, setCompletedDecisions] = useState<SimulationDecision[]>([]);
   const [currentDecisionIndex, setCurrentDecisionIndex] = useState(-1);
   const [showCompleted, setShowCompleted] = useState(false);
 
-  // ── Decision feedback & revision state ──
   const [feedbackMap, setFeedbackMap] = useState<Record<string, DecisionFeedback[]>>({});
   const [revisionMap, setRevisionMap] = useState<Record<string, DecisionRevision[]>>({});
   const [inlineFeedbackLoading, setInlineFeedbackLoading] = useState(false);
   const [pendingConfirm, setPendingConfirm] = useState<SimulationDecision | null>(null);
   const [pendingChipValue, setPendingChipValue] = useState<string | null>(null);
 
-  // ── SessionStorage persistence ──
+  // ── Draft order state ──
+  const [draftOrder, setDraftOrder] = useState<DraftOrder | null>(null);
+
   const HISTORY_KEY = "pisi_decision_history";
   const FEEDBACK_KEY = "pisi_decision_feedback";
   const REVISION_KEY = "pisi_decision_revisions";
@@ -293,7 +403,6 @@ export default function AIAgentPage() {
     []
   );
 
-  // Load persisted feedback on mount
   useEffect(() => {
     try {
       const storedFeedback = JSON.parse(sessionStorage.getItem(FEEDBACK_KEY) ?? "{}") as Record<string, DecisionFeedback[]>;
@@ -303,12 +412,10 @@ export default function AIAgentPage() {
     } catch { /* storage unavailable */ }
   }, []);
 
-  // ── Derived: current active decision ──
   const currentDecision = currentDecisionIndex >= 0 && currentDecisionIndex < simDecisions.length
     ? simDecisions[currentDecisionIndex]
     : null;
 
-  const hasDecisions = simDecisions.length > 0;
   const hasMoreDecisions = currentDecisionIndex < simDecisions.length - 1;
 
   // ── Survey handlers ──
@@ -357,7 +464,6 @@ export default function AIAgentPage() {
         },
       ]);
     } else {
-      // All survey questions answered — generate recommendations + decisions
       const rec = getSurveyRecommendation(updatedAnswers);
       const assistantRecMsg: AIMessage = {
         id: `s_rec_${Date.now()}`,
@@ -373,7 +479,6 @@ export default function AIAgentPage() {
       };
       setMessages((prev) => [...prev, assistantRecMsg]);
 
-      // Build decision queue and start simulation
       const templates = buildDecisionTemplates(updatedAnswers);
       const decisions: SimulationDecision[] = templates.map((t, i) => ({
         ...t,
@@ -382,9 +487,8 @@ export default function AIAgentPage() {
       }));
       setSimDecisions(decisions);
       setCurrentDecisionIndex(0);
-      setSurveyStep(-1); // survey complete
+      setSurveyStep(-1);
 
-      // Show first decision message
       const firstDec = decisions[0];
       const decisionIntroMsg: AIMessage = {
         id: `s_sim_${Date.now()}`,
@@ -397,7 +501,7 @@ export default function AIAgentPage() {
     }
   };
 
-  // ── Inline feedback for a specific decision ──
+  // ── Inline feedback ──
   const sendDecisionFeedback = async (feedback: string, decision: SimulationDecision) => {
     if (!feedback.trim()) return;
 
@@ -412,7 +516,6 @@ export default function AIAgentPage() {
     setInlineFeedbackLoading(true);
 
     try {
-      // Build AgentContext
       const holdings = Object.values(state.holdings).map((h) => {
         const livePrice = getPrice(h.symbol) || h.avgPrice;
         const unrealizedPnL = (livePrice - h.avgPrice) * h.quantity;
@@ -460,15 +563,12 @@ export default function AIAgentPage() {
         if (!res.ok) throw new Error("API error");
         agentResponse = await res.json();
       } catch {
-        // Deterministic mock fallback — always structured
         agentResponse = await getMockAgentResponse(feedback, agentContext);
       }
 
-      // ── Apply decision patch if present ──
       if (agentResponse.decisionPatch) {
         const patch = agentResponse.decisionPatch;
 
-        // Map action string → chip value
         const actionToChipValue: Record<string, string> = {
           Buy: 'buy_more',
           Sell: 'sell_partial',
@@ -478,17 +578,11 @@ export default function AIAgentPage() {
         };
 
         const suggestedChipValue = actionToChipValue[patch.action ?? ''];
-        const suggestedChip = suggestedChipValue
-          ? decision.chips?.find((c: DecisionChip) => c.value === suggestedChipValue)
-          : null;
-
-        // If we found a chip, pre-select it as the pending choice
-        if (suggestedChip && suggestedChipValue) {
+        if (suggestedChipValue) {
           setPendingChipValue(suggestedChipValue);
           setPendingConfirm(decision);
         }
 
-        // Update the decision with patch info (show revised rationale in decision bar)
         setSimDecisions((prev) =>
           prev.map((d) =>
             d.id === decision.id
@@ -504,14 +598,11 @@ export default function AIAgentPage() {
           )
         );
 
-        // Also update the currentDecision if it matches
         if (currentDecision?.id === decision.id) {
-          // Force re-render by updating a ref-like state trigger
           setSimDecisions((prev) => [...prev]);
         }
       }
 
-      // Record feedback
       const fbEntry: DecisionFeedback = {
         id: `fb_${Date.now()}`,
         decisionId: decision.id,
@@ -524,7 +615,6 @@ export default function AIAgentPage() {
         return updated;
       });
 
-      // Build a summary card showing the patch result
       const hasRevision = !!agentResponse.decisionPatch;
       const patchMsg = hasRevision
         ? `\n\n🡆 **Quyết định đã điều chỉnh:**\n${agentResponse.decisionPatch?.action ?? ''} — ${agentResponse.decisionPatch?.rationale ?? ''}`
@@ -538,7 +628,6 @@ export default function AIAgentPage() {
       };
       setMessages((prev) => [...prev, aiMsg]);
 
-      // Also push a toast for visibility
       if (agentResponse.decisionPatch) {
         pushToast({
           type: "info",
@@ -551,17 +640,15 @@ export default function AIAgentPage() {
     }
   };
 
-  // ── Chip selected but not confirmed yet ──
+  // ── Chip handlers ──
   const handleDecisionChoice = (value: string) => {
     if (!currentDecision) return;
     const chip = currentDecision.chips?.find((c: DecisionChip) => c.value === value);
     if (!chip) return;
 
-    // Record the pending choice (does NOT finalize the decision)
     setPendingChipValue(value);
     setPendingConfirm(currentDecision);
 
-    // Show pending choice in chat
     const userMsg: AIMessage = {
       id: `d_sel_${Date.now()}`,
       role: "user",
@@ -582,7 +669,6 @@ export default function AIAgentPage() {
     setMessages((prev) => [...prev, confirmMsg]);
   };
 
-  // ── Explicit user confirmation ──
   const handleConfirmDecision = () => {
     if (!pendingConfirm || !pendingChipValue) return;
 
@@ -592,7 +678,6 @@ export default function AIAgentPage() {
     const status = chipValueToStatus(pendingChipValue);
     const now = new Date().toISOString();
 
-    // Build history entry
     const entry: DecisionHistoryEntry = {
       id: `hist_${pendingConfirm.id}`,
       decisionId: pendingConfirm.id,
@@ -608,7 +693,6 @@ export default function AIAgentPage() {
       aiAdviceSnapshot: pendingConfirm.aiAdvice,
     };
 
-    // Persist history
     try {
       const existing = JSON.parse(sessionStorage.getItem(HISTORY_KEY) ?? "[]") as DecisionHistoryEntry[];
       const updated = existing.filter((e) => e.decisionId !== pendingConfirm.id);
@@ -616,7 +700,6 @@ export default function AIAgentPage() {
       sessionStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
     } catch { /* storage unavailable */ }
 
-    // Mark completed
     const resolved: SimulationDecision = {
       ...pendingConfirm,
       status,
@@ -629,7 +712,6 @@ export default function AIAgentPage() {
       prev.map((d) => (d.id === pendingConfirm.id ? resolved : d))
     );
 
-    // Add completion message
     const feedbackContent = status === "accepted"
       ? `Quyết định đã được xác nhận: "${chip.label}". ${pendingConfirm.aiAdvice}`
       : status === "rejected"
@@ -644,11 +726,9 @@ export default function AIAgentPage() {
     };
     setMessages((prev) => [...prev, completionMsg]);
 
-    // Clear pending state
     setPendingConfirm(null);
     setPendingChipValue(null);
 
-    // Advance to next decision after short delay
     setTimeout(() => advanceToNextDecision(pendingConfirm.id), 600);
   };
 
@@ -664,72 +744,51 @@ export default function AIAgentPage() {
     setMessages((prev) => [...prev, cancelMsg]);
   };
 
-  // ── Helper: build revision cards from a DecisionRevision ──
-  const buildRevisionCards = (rev: DecisionRevision): Array<{
-    type: "summary" | "risk" | "sentiment" | "technical" | "compare" | "watchlist" | "news" | "order";
-    title: string;
-    content: string;
-    sentiment?: "bullish" | "bearish" | "neutral";
-  }> => {
-    const cards: Array<{
-      type: "summary" | "risk" | "sentiment" | "technical" | "compare" | "watchlist" | "news" | "order";
-      title: string;
-      content: string;
-      sentiment?: "bullish" | "bearish" | "neutral";
-    }> = [];
+  // ── Draft order confirm / cancel ──
+  const handleDraftConfirm = () => {
+    if (!draftOrder) return;
+    const { action, ticker, name, quantity, price } = draftOrder;
 
-    const hasChanged = rev.originalChip !== rev.revisedChip;
-    if (hasChanged && rev.revisedChip) {
-      cards.push({
-        type: "summary",
-        title: "Khuyến nghị đã điều chỉnh",
-        content: `Từ: ${rev.originalChipLabel ?? rev.originalChip ?? "—"}\n→ ${rev.revisedChipLabel ?? rev.revisedChip ?? "—"}`,
-        sentiment: rev.confidenceAdjustment && rev.confidenceAdjustment > 0 ? "bullish" : "neutral",
-      });
+    if (action === "Buy") {
+      const success = executeBuy(ticker, name, quantity, price);
+      if (!success) {
+        pushToast({ type: "alert", title: "Lệnh thất bại", message: "Số dư không đủ hoặc lệnh không hợp lệ." });
+      } else {
+        pushToast({ type: "success", title: `Mua ${ticker} thành công`, message: `${quantity} CP @ $${price.toFixed(2)}` });
+      }
+    } else if (action === "Sell") {
+      const success = executeSell(ticker, name, quantity, price);
+      if (!success) {
+        pushToast({ type: "alert", title: "Lệnh thất bại", message: "Không đủ cổ phiếu để bán." });
+      } else {
+        pushToast({ type: "success", title: `Bán ${ticker} thành công`, message: `${quantity} CP @ $${price.toFixed(2)}` });
+      }
+    } else if (action === "Watch") {
+      toggleWatchlist(ticker);
+      pushToast({ type: "info", title: `Đã thêm ${ticker} vào watchlist`, message: `Theo dõi ${ticker}` });
+    } else {
+      pushToast({ type: "info", title: "Đã ghi nhận", message: `Giữ nguyên vị thế ${ticker}.` });
     }
-    if (rev.riskNote) {
-      cards.push({
-        type: "risk",
-        title: "Cảnh báo rủi ro",
-        content: rev.riskNote,
-        sentiment: "bearish",
-      });
-    }
-    if (rev.confidenceAdjustment !== undefined && rev.confidenceAdjustment !== 0) {
-      cards.push({
-        type: "sentiment",
-        title: "Điều chỉnh độ tin cậy",
-        content: `Thay đổi: ${rev.confidenceAdjustment > 0 ? "+" : ""}${(rev.confidenceAdjustment * 100).toFixed(0)}%`,
-        sentiment: rev.confidenceAdjustment > 0 ? "bullish" : "bearish",
-      });
-    }
-    return cards;
-  };
 
-  // ── Helper: build a DecisionRevision from free-text AI message ──
-  const buildRevisionFromMessage = (
-    message: string,
-    ctx: {
-      decisionTitle: string;
-      decisionDescription: string;
-      aiAdvice: string;
-      selectedChipValue?: string;
-      selectedChipLabel?: string;
-    }
-  ): DecisionRevision => {
-    const lower = message.toLowerCase();
-    const changed = lower.includes("thay đổi") || lower.includes("điều chỉnh") || lower.includes("khuyến nghị mới") || lower.includes("cập nhật");
-    return {
-      id: `rev_api_${Date.now()}`,
-      decisionId: ctx.decisionTitle,
-      originalAdvice: ctx.aiAdvice,
-      revisedAdvice: changed ? message : ctx.aiAdvice,
-      originalChip: ctx.selectedChipValue,
-      revisedChip: changed ? ctx.selectedChipValue : undefined,
-      confidenceAdjustment: changed ? 0.1 : 0,
-      rationale: changed ? "AI đã điều chỉnh khuyến nghị dựa trên phản hồi của bạn." : "Khuyến nghị giữ nguyên.",
+    const aiMsg: AIMessage = {
+      id: `draft_confirm_${Date.now()}`,
+      role: "assistant",
+      content: draftOrder.reason + (action === "Watch" ? ` Đã thêm **${ticker}** vào danh sách theo dõi.` : action === "Hold" ? "" : ` Lệnh đã được thực hiện.`),
       timestamp: new Date().toISOString(),
     };
+    setMessages((prev) => [...prev, aiMsg]);
+    setDraftOrder(null);
+  };
+
+  const handleDraftCancel = () => {
+    const cancelMsg: AIMessage = {
+      id: `draft_cancel_${Date.now()}`,
+      role: "assistant",
+      content: draftOrder ? `Đã hủy lệnh ${draftOrder.action} ${draftOrder.ticker}.` : "Đã hủy lệnh.",
+      timestamp: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, cancelMsg]);
+    setDraftOrder(null);
   };
 
   // ── Helper: advance to next decision ──
@@ -778,11 +837,9 @@ export default function AIAgentPage() {
       prev.map((d) => (d.id === skippedId ? resolved : d))
     );
 
-    // Clear any pending feedback state
     setPendingConfirm(null);
     setPendingChipValue(null);
 
-    const nextIdx = currentDecisionIndex + 1;
     const msg: AIMessage = {
       id: `d_skip_${Date.now()}`,
       role: "assistant",
@@ -795,7 +852,6 @@ export default function AIAgentPage() {
   };
 
   // ── Buy / watchlist ──
-
   const handleBuyStock = (symbol: string, qty = 10) => {
     const stock = getStockBySymbol(symbol);
     const price = getPrice(symbol);
@@ -836,9 +892,10 @@ export default function AIAgentPage() {
   };
 
   // ── Chat: freely alongside active decision ──
-  // Handles general chat, but also detects direct ticker instructions
+  // Draft orders are parsed synchronously; LLM is only called for questions.
   const sendMessage = async (msg: string) => {
     if (!msg.trim()) return;
+    if (loading) return; // prevent double-submit
 
     const userMsg: AIMessage = {
       id: `u_${Date.now()}`,
@@ -848,11 +905,31 @@ export default function AIAgentPage() {
     };
     setMessages((prev) => [...prev, userMsg]);
 
+    // ── Synchronous: parse intent first, no loading state ──
+    let draft: DraftOrder | null = null;
+    try {
+      draft = parseDraftOrder(msg, state.cashBalance, state.holdings, getPrice);
+    } catch (e) {
+      console.error("[parseDraftOrder] error:", e);
+    }
+
+    if (draft) {
+      setDraftOrder(draft);
+      const aiMsg: AIMessage = {
+        id: `draft_created_${Date.now()}`,
+        role: "assistant",
+        content: draft.reason + "\n\nXem lệnh dự thảo bên dưới và nhấn **Xác nhận** để thực hiện, hoặc **Hủy** để bỏ qua.",
+        timestamp: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, aiMsg]);
+      return; // synchronous path — NO setLoading(true) called
+    }
+
+    // ── Async: LLM path — set loading only here ──
     setInput("");
     setLoading(true);
 
     try {
-      // Build agent context for this message
       const holdings = Object.values(state.holdings).map((h) => {
         const livePrice = getPrice(h.symbol) || h.avgPrice;
         const unrealizedPnL = (livePrice - h.avgPrice) * h.quantity;
@@ -886,127 +963,116 @@ export default function AIAgentPage() {
         availableTickers: ['AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'META', 'TSLA', 'JPM', 'V', 'SPY', 'QQQ', 'BRK.B', 'XOM', 'UNH', 'DIS'],
       };
 
-      const res = await fetch("/api/ai/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: msg, context: agentContext }),
-      });
+      let agentResponse: AgentResponse | null = null;
+      try {
+        const res = await fetch("/api/ai/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: msg, context: agentContext }),
+        });
+        if (res.ok) agentResponse = await res.json();
+      } catch (e) {
+        console.error("[sendMessage] LLM fetch error:", e);
+      }
 
-      if (!res.ok) throw new Error("API error");
-
-      const agentResponse: AgentResponse = await res.json();
-
-      // Handle structured response with action
-      if (agentResponse.requestedAction && agentResponse.requestedTicker) {
+      if (agentResponse?.requestedAction && agentResponse?.requestedTicker) {
         const ticker = agentResponse.requestedTicker;
         const stock = getStockBySymbol(ticker);
         const price = stock ? (getPrice(ticker) || stock.price) : 0;
 
-        if (agentResponse.requestedAction === 'Buy' && stock && price > 0) {
-          const qty = agentResponse.requestedQuantity ?? 10;
-          const success = executeBuy(ticker, stock.name, qty, price);
-          const patchMsg: AIMessage = {
-            id: `action_ai_${Date.now()}`,
-            role: "assistant",
-            content: success
-              ? `Đã đặt lệnh **MUA** ${qty} CP ${ticker} @ $${price.toFixed(2)}. Tổng: $${(qty * price).toLocaleString('en-US', { minimumFractionDigits: 2 })}.`
-              : agentResponse.message,
-            timestamp: new Date().toISOString(),
-          };
-          setMessages((prev) => [...prev, patchMsg]);
-          if (success) {
-            pushToast({ type: "success", title: `Mua ${ticker} thành công`, message: `${qty} CP @ $${price.toFixed(2)}` });
-          }
-        } else if (agentResponse.requestedAction === 'Sell' && stock && price > 0) {
+        if ((agentResponse.requestedAction === 'Buy' || agentResponse.requestedAction === 'Sell') && stock && price > 0) {
           const holding = state.holdings[ticker];
-          const qty = agentResponse.requestedQuantity ?? (holding?.quantity ?? 0);
-          if (qty <= 0 || !holding) {
-            const errMsg: AIMessage = {
-              id: `action_ai_${Date.now()}`,
-              role: "assistant",
-              content: `Bạn không có vị thế ${ticker} để bán.`,
-              timestamp: new Date().toISOString(),
-            };
-            setMessages((prev) => [...prev, errMsg]);
-          } else {
-            const success = executeSell(ticker, stock.name, qty, price);
-            const patchMsg: AIMessage = {
-              id: `action_ai_${Date.now()}`,
-              role: "assistant",
-              content: success
-                ? `Đã đặt lệnh **BÁN** ${qty} CP ${ticker} @ $${price.toFixed(2)}. Thu về: $${(qty * price).toLocaleString('en-US', { minimumFractionDigits: 2 })}.`
-                : agentResponse.message,
-              timestamp: new Date().toISOString(),
-            };
-            setMessages((prev) => [...prev, patchMsg]);
-            if (success) {
-              pushToast({ type: "success", title: `Bán ${ticker} thành công`, message: `${qty} CP @ $${price.toFixed(2)}` });
+          let qty = agentResponse.requestedQuantity ?? 10;
+          if (agentResponse.requestedAction === 'Sell') {
+            if (!holding || holding.quantity === 0) {
+              const errMsg: AIMessage = {
+                id: `action_ai_${Date.now()}`,
+                role: "assistant",
+                content: `Bạn không có vị thế ${ticker} để bán.`,
+                timestamp: new Date().toISOString(),
+              };
+              setMessages((prev) => [...prev, errMsg]);
+              setLoading(false);
+              return;
             }
+            qty = Math.min(qty, holding.quantity);
           }
+          const total = qty * price;
+          const draft2: DraftOrder = {
+            id: `draft_${Date.now()}`,
+            action: agentResponse.requestedAction as DraftAction,
+            ticker,
+            name: stock.name,
+            quantity: qty,
+            price,
+            total,
+            reason: agentResponse.message,
+          };
+          setDraftOrder(draft2);
+          const aiMsg: AIMessage = {
+            id: `draft_ai_${Date.now()}`,
+            role: "assistant",
+            content: `${agentResponse.message}\n\nXem lệnh dự thảo bên dưới và nhấn **Xác nhận** để thực hiện, hoặc **Hủy** để bỏ qua.`,
+            timestamp: new Date().toISOString(),
+          };
+          setMessages((prev) => [...prev, aiMsg]);
+          setLoading(false);
+          return;
         } else if (agentResponse.requestedAction === 'Watch') {
-          pushToast({ type: "info", title: `Đã thêm ${ticker} vào watchlist`, message: `Theo dõi ${ticker}` });
+          toggleWatchlist(ticker);
           const patchMsg: AIMessage = {
             id: `action_ai_${Date.now()}`,
             role: "assistant",
-            content: `Đã thêm **${ticker}** vào danh sách theo dõi.`,
+            content: `Đã thêm **${ticker}** vào danh sách theo dõi. ${agentResponse.message}`,
             timestamp: new Date().toISOString(),
           };
           setMessages((prev) => [...prev, patchMsg]);
-        } else {
-          // Fallback to text response
-          const aiMsg: AIMessage = {
-            id: `ai_${Date.now()}`,
+          setLoading(false);
+          return;
+        } else if (agentResponse.requestedAction === 'Hold') {
+          const patchMsg: AIMessage = {
+            id: `action_ai_${Date.now()}`,
             role: "assistant",
             content: agentResponse.message,
             timestamp: new Date().toISOString(),
           };
-          setMessages((prev) => [...prev, aiMsg]);
+          setMessages((prev) => [...prev, patchMsg]);
+          setLoading(false);
+          return;
         }
-        return;
       }
 
-      // Handle decision patch (adjust current decision)
-      if (agentResponse.decisionPatch && currentDecision) {
-        const patch = agentResponse.decisionPatch;
-        const actionToChipValue: Record<string, string> = {
-          Buy: 'buy_more',
-          Sell: 'sell_partial',
-          Hold: 'hold',
-          Watch: 'watch',
-          Rebalance: 'rebalance_yes',
-        };
-        const suggestedChipValue = actionToChipValue[patch.action ?? ''];
-        if (suggestedChipValue) {
-          setPendingChipValue(suggestedChipValue);
-          setPendingConfirm(currentDecision);
+      // No structured action — try mock fallback before giving up
+      if (!agentResponse) {
+        const fallbackDraft = parseDraftOrder(msg, state.cashBalance, state.holdings, getPrice);
+        if (fallbackDraft) {
+          setDraftOrder(fallbackDraft);
+          const aiMsg: AIMessage = {
+            id: `fallback_draft_${Date.now()}`,
+            role: "assistant",
+            content: fallbackDraft.reason + "\n\nXem lệnh dự thảo bên dưới và nhấn **Xác nhận** để thực hiện, hoặc **Hủy** để bỏ qua.",
+            timestamp: new Date().toISOString(),
+          };
+          setMessages((prev) => [...prev, aiMsg]);
+          setLoading(false);
+          return;
         }
-        const patchMsg: AIMessage = {
-          id: `rev_ai_${Date.now()}`,
-          role: "assistant",
-          content: agentResponse.message + `\n\n🡆 **Quyết định đã cập nhật:** ${patch.action ?? ''} — ${patch.rationale ?? ''}`,
-          timestamp: new Date().toISOString(),
-        };
-        setMessages((prev) => [...prev, patchMsg]);
-        pushToast({ type: "info", title: "Quyết định đã điều chỉnh", message: patch.rationale ?? patch.action ?? '' });
-        return;
       }
 
       // Plain text response
       const aiMsg: AIMessage = {
         id: `ai_${Date.now()}`,
         role: "assistant",
-        content: agentResponse.message,
+        content: agentResponse?.message ?? "Không nhận được phản hồi từ AI.",
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, aiMsg]);
-    } catch {
-      // Fallback to legacy mock
-      const mockRes = await getMockAIResponse(msg);
+    } catch (e) {
+      console.error("[sendMessage] unexpected error:", e);
       const aiMsg: AIMessage = {
-        id: `ai_${Date.now()}`,
+        id: `err_${Date.now()}`,
         role: "assistant",
-        content: mockRes.message,
-        cards: mockRes.cards,
+        content: "Đã xảy ra lỗi. Vui lòng thử lại.",
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, aiMsg]);
@@ -1016,13 +1082,11 @@ export default function AIAgentPage() {
   };
 
   // ── Prompt buttons ──
-
   const displayPrompts = [
     "⚡ Bắt đầu tư vấn đầu tư (Khảo sát 5 câu)",
     ...SUGGESTED_PROMPTS.slice(0, 3),
   ];
 
-  // ── Input locked during survey chip selection; free chat always allowed otherwise ──
   const inputLocked = surveyStep > 0;
   const inputPlaceholder = inputLocked
     ? "Vui lòng chọn một lựa chọn ở trên..."
@@ -1069,7 +1133,7 @@ export default function AIAgentPage() {
     );
   };
 
-  // ── Inline feedback panel for a specific decision ──
+  // ── Inline feedback panel ──
   const InlineFeedbackPanel = ({ decision }: { decision: SimulationDecision }) => {
     const [feedbackText, setFeedbackText] = useState("");
 
@@ -1133,7 +1197,7 @@ export default function AIAgentPage() {
     );
   };
 
-  // ── Confirmation panel (shown after chip selection) ──
+  // ── Confirmation panel (chip selection) ──
   const ConfirmationPanel = ({ decision, chipValue }: { decision: SimulationDecision; chipValue: string }) => {
     const chip = decision.chips?.find((c: DecisionChip) => c.value === chipValue);
     if (!chip) return null;
@@ -1181,7 +1245,86 @@ export default function AIAgentPage() {
     );
   };
 
-  // ── Active decision bar (always visible below header) ──
+  // ── Draft order card (visible draft decision) ──
+  const DraftOrderCard = ({ draft }: { draft: DraftOrder }) => {
+    const isBuy = draft.action === "Buy";
+    const isSell = draft.action === "Sell";
+    const isHold = draft.action === "Hold";
+    const actionColor = isBuy ? "emerald" : isSell ? "red" : isHold ? "amber" : "blue";
+    const actionLabel = isBuy ? "MUA" : isSell ? "BÁN" : isHold ? "GIỮ" : "THEO DÕI";
+
+    return (
+      <div className="mb-4 card border-amber-500/30 bg-gradient-to-r from-amber-500/5 to-orange-500/5 p-4 rounded-2xl">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-500">Lệnh dự thảo</span>
+          <span className={`badge text-[10px] bg-${actionColor}-500/15 text-${actionColor}-600 dark:text-${actionColor}-400 border-${actionColor}-500/30`}>
+            {actionLabel}
+          </span>
+        </div>
+
+        <div className="bg-card rounded-xl p-4 space-y-3">
+          {/* Ticker and action */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-bold text-foreground text-lg">{draft.ticker}</p>
+              <p className="text-xs text-muted-foreground">{draft.name}</p>
+            </div>
+            <div className="text-right">
+              <p className={`font-bold text-lg text-${actionColor}-500`}>{actionLabel}</p>
+              <p className="text-xs text-muted-foreground">@ ${draft.price.toFixed(2)}</p>
+            </div>
+          </div>
+
+          {/* Details */}
+          <div className="grid grid-cols-3 gap-2 bg-muted/40 rounded-lg p-3 text-xs">
+            <div>
+              <p className="text-muted-foreground">Số lượng</p>
+              <p className="font-semibold text-foreground">{draft.quantity > 0 ? `${draft.quantity} CP` : "—"}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Giá</p>
+              <p className="font-semibold text-foreground">${draft.price.toFixed(2)}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Tổng</p>
+              <p className="font-semibold text-foreground">
+                {draft.total > 0 ? `$${draft.total.toLocaleString("en-US", { minimumFractionDigits: 2 })}` : "—"}
+              </p>
+            </div>
+          </div>
+
+          {/* Reason */}
+          <p className="text-xs text-muted-foreground leading-relaxed">{draft.reason}</p>
+
+          {/* Confirm / Cancel */}
+          <div className="flex gap-2 pt-1">
+            <button
+              className={`flex-1 btn font-semibold py-2.5 rounded-lg flex items-center justify-center gap-1.5 text-sm text-white cursor-pointer ${
+                isBuy
+                  ? "bg-emerald-500 hover:bg-emerald-600"
+                  : isSell
+                  ? "bg-red-500 hover:bg-red-600"
+                  : "bg-amber-500 hover:bg-amber-600"
+              }`}
+              onClick={handleDraftConfirm}
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              Xác nhận
+            </button>
+            <button
+              className="btn border border-border hover:bg-muted/50 py-2.5 rounded-lg flex items-center justify-center px-4 text-sm cursor-pointer"
+              onClick={handleDraftCancel}
+            >
+              <XCircle className="w-4 h-4 mr-1.5" />
+              Hủy
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ── Active decision bar ──
   const ActiveDecisionBar = () => {
     if (!currentDecision) return null;
     const isPendingForThis = pendingConfirm?.id === currentDecision.id && pendingChipValue !== null;
@@ -1219,7 +1362,6 @@ export default function AIAgentPage() {
         <h3 className="font-bold text-foreground text-sm mb-1">{currentDecision.title}</h3>
         <p className="text-xs text-muted-foreground leading-relaxed">{currentDecision.description}</p>
 
-        {/* Chips — dim if a pending choice already exists */}
         {currentDecision.chips && (
           <div className="flex flex-wrap gap-2 mt-3">
             {currentDecision.chips.map((chip) => {
@@ -1241,12 +1383,10 @@ export default function AIAgentPage() {
           </div>
         )}
 
-        {/* Confirmation panel — shown after chip is selected */}
         {isPendingForThis && pendingConfirm && (
           <ConfirmationPanel decision={pendingConfirm} chipValue={pendingChipValue!} />
         )}
 
-        {/* Inline feedback panel — always available during pending, also available for the current decision */}
         <InlineFeedbackPanel decision={currentDecision} />
       </div>
     );
@@ -1267,12 +1407,15 @@ export default function AIAgentPage() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-foreground">AI Agent</h1>
-              <p className="text-xs text-muted-foreground">Trợ lý tài chính thông minh • Phiên bản 1.0</p>
+              <p className="text-xs text-muted-foreground">Trợ lý tài chính thông minh</p>
             </div>
           </div>
 
           {/* Active decision bar */}
           <ActiveDecisionBar />
+
+          {/* Draft order card */}
+          {draftOrder && <DraftOrderCard draft={draftOrder} />}
 
           {/* Completed decisions accordion */}
           <CompletedSection />
@@ -1311,15 +1454,13 @@ export default function AIAgentPage() {
               </div>
             )}
 
-            {messages.map((m, idx) => {
-              const isLatestMessage = idx === messages.length - 1;
+            {messages.map((m) => {
               return (
                 <div key={m.id} className={`${m.role === "user" ? "flex justify-end" : "flex justify-start"}`}>
                   <div className={`max-w-[85%] ${m.role === "user" ? "bg-indigo-500 text-white rounded-2xl rounded-tr-md px-4 py-3" : ""}`}>
                     <p className="text-sm whitespace-pre-line leading-relaxed">{m.content}</p>
 
-                    {/* Chips — survey only (decisions shown in bar) */}
-                    {m.chips && isLatestMessage && !currentDecision && (
+                    {m.chips && (
                       <div className="flex flex-wrap gap-2 mt-3 justify-start">
                         {m.chips.map((chip, cIdx) => (
                           <button
@@ -1333,7 +1474,6 @@ export default function AIAgentPage() {
                       </div>
                     )}
 
-                    {/* Survey recommendation card */}
                     {m.surveyRecommendation && (
                       <div className="card bg-gradient-to-br from-purple-500/5 to-indigo-500/5 border border-purple-500/20 rounded-2xl p-5 mt-4 space-y-4 max-w-lg shadow-xl shadow-purple-500/5 text-foreground">
                         <div className="flex items-center justify-between border-b border-border pb-3">
@@ -1373,7 +1513,7 @@ export default function AIAgentPage() {
 
                           <button
                             onClick={() => toggleWatchlist(m.surveyRecommendation!.symbol)}
-                            className={`btn border border-border text-xs py-2.5 rounded-lg flex items-center justify-center gap-1.5 transition-all px-4 hover:bg-secondary cursor-pointer ${
+                            className={`btn border text-xs py-2.5 rounded-lg flex items-center justify-center gap-1.5 transition-all px-4 hover:bg-secondary cursor-pointer ${
                               isInWatchlist(m.surveyRecommendation.symbol)
                                 ? "text-amber-500 border-amber-500/40 bg-amber-500/5"
                                 : "text-foreground"
@@ -1386,7 +1526,6 @@ export default function AIAgentPage() {
                       </div>
                     )}
 
-                    {/* AI cards */}
                     {m.cards && m.cards.length > 0 && (
                       <div className="mt-3 space-y-2">
                         {m.cards.map((card, cIdx) => (
@@ -1432,7 +1571,7 @@ export default function AIAgentPage() {
             )}
           </div>
 
-          {/* Chat input — always visible */}
+          {/* Chat input */}
           <div className="flex gap-2.5 mt-auto">
             <input
               className="input flex-1 py-3 px-4 text-sm"
@@ -1451,7 +1590,7 @@ export default function AIAgentPage() {
               disabled={loading}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="m22 2-7 20-4-9-9-4z" />
+                <path d="m22 2-7 20-4-9-4z" />
                 <path d="M22 2 11 13" />
               </svg>
             </button>
