@@ -1,33 +1,212 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { StockQuote } from "@/lib/market/mock-data";
-import { formatCurrency, formatLargeNumber, formatPercent, getChangeColor } from "@/lib/utils";
+import { SP500_METADATA } from "@/lib/market/sp500-metadata";
+import { useVisibleLiveQuotes } from "@/lib/market/use-visible-live-quotes";
+import { formatCurrency, formatLargeNumber } from "@/lib/utils";
 import PriceChangeBadge from "./PriceChangeBadge";
 import MiniSparkline from "./MiniSparkline";
 import WatchlistStar from "./WatchlistStar";
 import { useDemo } from "@/lib/demo";
 
 type SortKey = "symbol"|"price"|"day1"|"week1"|"month1"|"ytd"|"marketCap"|"volume"|"peRatio"|"eps";
+type MarketRow = StockQuote & { requestSymbol: string; marketCapRank: number };
 
-export default function MarketTable({ stocks, showFilters = true }: { stocks: StockQuote[]; showFilters?: boolean }) {
+interface MarketTableProps {
+  stocks: StockQuote[];
+  showFilters?: boolean;
+  priceFilter?: string;
+  changeFilter?: string;
+  marketCapFilter?: string;
+  exchangeFilter?: string;
+}
+
+const EMPTY_NUMBER = Number.NaN;
+const MAX_VISIBLE_STOCKS = 30;
+
+function normalizeText(value: string) {
+  return value.trim().toUpperCase().replace(/[.-]/g, "").replace(/[^A-Z0-9]+/g, " ").trim();
+}
+
+function searchRank(stock: MarketRow, query: string) {
+  if (!query) return 0;
+  const compactQuery = query.replace(/\s+/g, "");
+  const symbol = normalizeText(stock.symbol).replace(/\s+/g, "");
+  const requestSymbol = normalizeText(stock.requestSymbol).replace(/\s+/g, "");
+  const name = normalizeText(stock.name);
+  if (compactQuery === symbol || compactQuery === requestSymbol) return 0;
+  if (symbol.startsWith(compactQuery) || requestSymbol.startsWith(compactQuery)) return 1;
+  if (symbol.includes(compactQuery) || requestSymbol.includes(compactQuery)) return 2;
+  if (name.includes(query)) return 3;
+  return Number.POSITIVE_INFINITY;
+}
+
+function matchesMarketCapRank(rank: number, filter: string) {
+  if (filter === "mega") return rank <= 20;
+  if (filter === "large") return rank > 20 && rank <= 200;
+  if (filter === "mid") return rank > 200 && rank <= 400;
+  if (filter === "small") return rank > 400;
+  return true;
+}
+
+function hasFiniteValue(value: number) {
+  return Number.isFinite(value);
+}
+
+function compareNumbers(a: number, b: number, direction: "asc" | "desc") {
+  const aAvailable = hasFiniteValue(a);
+  const bAvailable = hasFiniteValue(b);
+  if (!aAvailable && !bAvailable) return 0;
+  if (!aAvailable) return 1;
+  if (!bAvailable) return -1;
+  return direction === "asc" ? a - b : b - a;
+}
+
+function formatOptionalCurrency(value: number) {
+  return hasFiniteValue(value) ? formatCurrency(value) : "—";
+}
+
+function formatOptionalLargeNumber(value: number) {
+  return hasFiniteValue(value) ? formatLargeNumber(value) : "—";
+}
+
+export default function MarketTable({
+  stocks,
+  showFilters = true,
+  priceFilter = "all",
+  changeFilter = "all",
+  marketCapFilter = "all",
+  exchangeFilter = "all",
+}: MarketTableProps) {
   const { state } = useDemo();
   const [sortKey, setSortKey] = useState<SortKey>("marketCap");
   const [sortDir, setSortDir] = useState<"asc"|"desc">("desc");
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [sectorFilter, setSectorFilter] = useState("all");
 
-  const sectors = useMemo(() => ["all", ...new Set(stocks.map((s) => s.sector))], [stocks]);
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebouncedSearch(search), 300);
+    return () => window.clearTimeout(timeout);
+  }, [search]);
+
+  const universe = useMemo<MarketRow[]>(() => {
+    const seededBySymbol = new Map(stocks.map((stock) => [stock.symbol.toUpperCase(), stock]));
+    const metadataSymbols = new Set(SP500_METADATA.map((stock) => stock.symbol));
+    const sp500Rows = SP500_METADATA.map((metadata) => {
+      const seeded = seededBySymbol.get(metadata.symbol);
+      if (seeded) {
+        return { ...seeded, requestSymbol: metadata.requestSymbol, marketCapRank: metadata.marketCapRank };
+      }
+      return {
+        symbol: metadata.symbol,
+        requestSymbol: metadata.requestSymbol,
+        name: metadata.name,
+        exchange: metadata.exchange,
+        sector: metadata.sector,
+        marketCapRank: metadata.marketCapRank,
+        currency: "USD",
+        price: EMPTY_NUMBER,
+        change: EMPTY_NUMBER,
+        changePercent: EMPTY_NUMBER,
+        marketCap: EMPTY_NUMBER,
+        volume: EMPTY_NUMBER,
+        peRatio: EMPTY_NUMBER,
+        eps: EMPTY_NUMBER,
+        dividendYield: EMPTY_NUMBER,
+        beta: EMPTY_NUMBER,
+        high52w: EMPTY_NUMBER,
+        low52w: EMPTY_NUMBER,
+        sparkline: [],
+        day1: EMPTY_NUMBER,
+        week1: EMPTY_NUMBER,
+        month1: EMPTY_NUMBER,
+        ytd: EMPTY_NUMBER,
+      };
+    });
+    const preservedSeedRows = stocks
+      .filter((stock) => !metadataSymbols.has(stock.symbol.toUpperCase()))
+      .map((stock, index) => ({
+        ...stock,
+        requestSymbol: stock.symbol.replace(/\./g, "-"),
+        marketCapRank: SP500_METADATA.length + index + 1,
+      }));
+    return [...sp500Rows, ...preservedSeedRows];
+  }, [stocks]);
+
+  const sectors = useMemo(() => ["all", ...new Set(universe.map((stock) => stock.sector))], [universe]);
+  const normalizedQuery = useMemo(() => normalizeText(debouncedSearch), [debouncedSearch]);
+
+  const visibleCandidates = useMemo(() => {
+    const filtered = universe.filter((stock) => {
+      if (normalizedQuery && !Number.isFinite(searchRank(stock, normalizedQuery))) return false;
+      if (sectorFilter !== "all" && stock.sector !== sectorFilter) return false;
+      if (exchangeFilter !== "all") {
+        const exchangeMatches = exchangeFilter === "AMEX"
+          ? stock.exchange === "AMEX" || stock.exchange === "NYSE American"
+          : stock.exchange === exchangeFilter;
+        if (!exchangeMatches) return false;
+      }
+      return matchesMarketCapRank(stock.marketCapRank, marketCapFilter);
+    });
+
+    return filtered.sort((a, b) => {
+      if (normalizedQuery) {
+        const relevance = searchRank(a, normalizedQuery) - searchRank(b, normalizedQuery);
+        if (relevance !== 0) return relevance;
+      }
+      if (sortKey === "symbol") {
+        return sortDir === "asc" ? a.symbol.localeCompare(b.symbol) : b.symbol.localeCompare(a.symbol);
+      }
+      if (sortKey === "marketCap") {
+        return sortDir === "desc" ? a.marketCapRank - b.marketCapRank : b.marketCapRank - a.marketCapRank;
+      }
+      return a.marketCapRank - b.marketCapRank;
+    }).slice(0, MAX_VISIBLE_STOCKS);
+  }, [universe, normalizedQuery, sectorFilter, exchangeFilter, marketCapFilter, sortKey, sortDir]);
+
+  const visibleSymbols = useMemo(
+    () => visibleCandidates.map(({ symbol, requestSymbol }) => ({ symbol, requestSymbol })),
+    [visibleCandidates],
+  );
+  useVisibleLiveQuotes(visibleSymbols);
 
   const sorted = useMemo(() => {
-    let filtered = stocks;
-    if (search) filtered = filtered.filter((s) => s.symbol.toLowerCase().includes(search.toLowerCase()) || s.name.toLowerCase().includes(search.toLowerCase()));
-    if (sectorFilter !== "all") filtered = filtered.filter((s) => s.sector === sectorFilter);
-    return [...filtered].sort((a, b) => {
-      const av = a[sortKey] as number;
-      const bv = b[sortKey] as number;
-      return sortDir === "asc" ? av - bv : bv - av;
+    const getPrice = (stock: MarketRow) => state.marketCache[stock.symbol.toUpperCase()]?.price ?? stock.price;
+    const getDailyChange = (stock: MarketRow) => state.marketCache[stock.symbol.toUpperCase()]?.changePercent ?? stock.day1;
+
+    const filtered = visibleCandidates.filter((stock) => {
+      const price = getPrice(stock);
+      const dailyChange = getDailyChange(stock);
+      if (priceFilter === "lt50" && !(hasFiniteValue(price) && price < 50)) return false;
+      if (priceFilter === "50to200" && !(hasFiniteValue(price) && price >= 50 && price <= 200)) return false;
+      if (priceFilter === "gt200" && !(hasFiniteValue(price) && price > 200)) return false;
+      if (changeFilter === "gt5" && !(hasFiniteValue(dailyChange) && dailyChange > 5)) return false;
+      if (changeFilter === "gainers" && !(hasFiniteValue(dailyChange) && dailyChange > 0)) return false;
+      if (changeFilter === "losers" && !(hasFiniteValue(dailyChange) && dailyChange < 0)) return false;
+      if (changeFilter === "ltminus5" && !(hasFiniteValue(dailyChange) && dailyChange < -5)) return false;
+      return true;
     });
-  }, [stocks, sortKey, sortDir, search, sectorFilter]);
+
+    return [...filtered].sort((a, b) => {
+      if (normalizedQuery) {
+        const relevance = searchRank(a, normalizedQuery) - searchRank(b, normalizedQuery);
+        if (relevance !== 0) return relevance;
+      }
+      if (sortKey === "symbol") {
+        return sortDir === "asc" ? a.symbol.localeCompare(b.symbol) : b.symbol.localeCompare(a.symbol);
+      }
+      if (sortKey === "marketCap") {
+        return sortDir === "desc" ? a.marketCapRank - b.marketCapRank : b.marketCapRank - a.marketCapRank;
+      }
+      const value = (stock: MarketRow) => {
+        if (sortKey === "price") return getPrice(stock);
+        if (sortKey === "day1") return getDailyChange(stock);
+        return stock[sortKey];
+      };
+      return compareNumbers(value(a), value(b), sortDir);
+    });
+  }, [visibleCandidates, state.marketCache, priceFilter, changeFilter, normalizedQuery, sortKey, sortDir]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(sortDir === "asc" ? "desc" : "asc");
@@ -79,13 +258,13 @@ export default function MarketTable({ stocks, showFilters = true }: { stocks: St
                   <td className="text-muted-foreground">{i + 1}</td>
                   <td className="font-semibold text-primary">{s.symbol}</td>
                   <td className="max-w-[140px] truncate">{s.name}</td>
-                  <td className="font-mono font-medium">{formatCurrency(displayPrice)}</td>
-                  <td><PriceChangeBadge value={displayChange} /></td>
-                  <td><PriceChangeBadge value={s.week1} /></td>
-                  <td><PriceChangeBadge value={s.month1} /></td>
-                  <td><PriceChangeBadge value={s.ytd} /></td>
-                  <td className="font-mono">{formatLargeNumber(s.marketCap)}</td>
-                  <td className="font-mono">{formatLargeNumber(s.volume)}</td>
+                  <td className="font-mono font-medium">{formatOptionalCurrency(displayPrice)}</td>
+                  <td>{hasFiniteValue(displayChange) ? <PriceChangeBadge value={displayChange} /> : "—"}</td>
+                  <td>{hasFiniteValue(s.week1) ? <PriceChangeBadge value={s.week1} /> : "—"}</td>
+                  <td>{hasFiniteValue(s.month1) ? <PriceChangeBadge value={s.month1} /> : "—"}</td>
+                  <td>{hasFiniteValue(s.ytd) ? <PriceChangeBadge value={s.ytd} /> : "—"}</td>
+                  <td className="font-mono">{formatOptionalLargeNumber(s.marketCap)}</td>
+                  <td className="font-mono">{formatOptionalLargeNumber(s.volume)}</td>
                   <td className="font-mono">{s.peRatio > 0 ? s.peRatio.toFixed(1) : "—"}</td>
                   <td className="font-mono">{s.eps > 0 ? s.eps.toFixed(2) : "—"}</td>
                   <td><span className="badge badge-neutral text-xs">{s.sector}</span></td>
@@ -100,7 +279,7 @@ export default function MarketTable({ stocks, showFilters = true }: { stocks: St
 
       {/* Mobile cards */}
       <div className="mobile-cards flex-col gap-3">
-        {sorted.map((s, i) => {
+        {sorted.map((s) => {
           const cached = state.marketCache[s.symbol.toUpperCase()];
           const displayPrice = cached?.price ?? s.price;
           const displayChange = cached?.changePercent ?? s.day1;
@@ -112,12 +291,12 @@ export default function MarketTable({ stocks, showFilters = true }: { stocks: St
                   <span className="text-xs text-muted-foreground truncate">{s.name}</span>
                 </div>
                 <div className="flex items-center gap-3 mt-1">
-                  <span className="font-mono font-medium">{formatCurrency(displayPrice)}</span>
-                  <PriceChangeBadge value={displayChange} />
+                  <span className="font-mono font-medium">{formatOptionalCurrency(displayPrice)}</span>
+                  {hasFiniteValue(displayChange) ? <PriceChangeBadge value={displayChange} /> : <span>—</span>}
                 </div>
                 <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                  <span>Vốn hóa: {formatLargeNumber(s.marketCap)}</span>
-                  <span>KL: {formatLargeNumber(s.volume)}</span>
+                  <span>Vốn hóa: {formatOptionalLargeNumber(s.marketCap)}</span>
+                  <span>KL: {formatOptionalLargeNumber(s.volume)}</span>
                 </div>
               </div>
               <div className="flex flex-col items-end gap-1">
