@@ -479,6 +479,12 @@ export default function AIAgentPage() {
   const [messages, setMessages] = useState<AIMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [profileSetupOpen, setProfileSetupOpen] = useState(false);
+  const [profileStarted, setProfileStarted] = useState(false);
+  const [profileRisk, setProfileRisk] = useState("");
+  const [profileHorizon, setProfileHorizon] = useState("");
+  const [profileDrawdown, setProfileDrawdown] = useState("");
+  const [questionCount, setQuestionCount] = useState(0);
 
   const [surveyStep, setSurveyStep] = useState(0);
   const [surveyAnswers, setSurveyAnswers] = useState<Record<string, string>>({});
@@ -507,6 +513,17 @@ export default function AIAgentPage() {
   const HISTORY_KEY = "pisi_decision_history";
   const FEEDBACK_KEY = "pisi_decision_feedback";
   const REVISION_KEY = "pisi_decision_revisions";
+  const QUESTION_COUNT_KEY = "finpilot_general_question_count";
+
+  const recordGeneralAnswer = useCallback(() => {
+    setQuestionCount((current) => {
+      const next = Math.min(3, current + 1);
+      try {
+        sessionStorage.setItem(QUESTION_COUNT_KEY, String(next));
+      } catch { /* storage unavailable */ }
+      return next;
+    });
+  }, []);
 
   const saveFeedbackToStorage = useCallback(
     (id: string, feedback: DecisionFeedback[]) => {
@@ -536,6 +553,10 @@ export default function AIAgentPage() {
       if (Object.keys(storedFeedback).length > 0) setFeedbackMap(storedFeedback);
       const storedRevisions = JSON.parse(sessionStorage.getItem(REVISION_KEY) ?? "{}") as Record<string, DecisionRevision[]>;
       if (Object.keys(storedRevisions).length > 0) setRevisionMap(storedRevisions);
+      const storedQuestionCount = Number(sessionStorage.getItem(QUESTION_COUNT_KEY) ?? "0");
+      if (Number.isFinite(storedQuestionCount)) {
+        setQuestionCount(Math.min(3, Math.max(0, storedQuestionCount)));
+      }
     } catch { /* storage unavailable */ }
   }, []);
 
@@ -1139,6 +1160,12 @@ export default function AIAgentPage() {
       return;
     }
 
+    if (questionCount >= 3) {
+      setMessages((prev) => prev.filter((message) => message.id !== userMsg.id));
+      setInput("");
+      return;
+    }
+
     // ── Async: LLM path — set loading only here ──
     setInput("");
     setLoading(true);
@@ -1175,6 +1202,7 @@ export default function AIAgentPage() {
             : undefined,
         } : undefined,
         availableTickers: ['AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'META', 'TSLA', 'JPM', 'V', 'SPY', 'QQQ', 'BRK.B', 'XOM', 'UNH', 'DIS'],
+        investmentProfile: `Rủi ro: ${profileRisk}; Thời hạn: ${profileHorizon}; Drawdown tối đa: ${profileDrawdown || "Chưa chọn"}`,
       };
 
       let agentResponse: AgentResponse | null = null;
@@ -1230,6 +1258,7 @@ export default function AIAgentPage() {
             timestamp: new Date().toISOString(),
           };
           setMessages((prev) => [...prev, aiMsg]);
+          recordGeneralAnswer();
           setLoading(false);
           return;
         } else if (agentResponse.requestedAction === 'Watch') {
@@ -1241,6 +1270,7 @@ export default function AIAgentPage() {
             timestamp: new Date().toISOString(),
           };
           setMessages((prev) => [...prev, patchMsg]);
+          recordGeneralAnswer();
           setLoading(false);
           return;
         } else if (agentResponse.requestedAction === 'Hold') {
@@ -1251,6 +1281,7 @@ export default function AIAgentPage() {
             timestamp: new Date().toISOString(),
           };
           setMessages((prev) => [...prev, patchMsg]);
+          recordGeneralAnswer();
           setLoading(false);
           return;
         }
@@ -1281,6 +1312,7 @@ export default function AIAgentPage() {
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, aiMsg]);
+      if (agentResponse) recordGeneralAnswer();
     } catch (e) {
       console.error("[sendMessage] unexpected error:", e);
       const aiMsg: AIMessage = {
@@ -1298,11 +1330,14 @@ export default function AIAgentPage() {
   // ── Prompt buttons ──
   const displayPrompts = [
     "⚡ Bắt đầu tư vấn đầu tư (Khảo sát 5 câu)",
-    ...SUGGESTED_PROMPTS.slice(0, 3),
+    ...SUGGESTED_PROMPTS,
   ];
 
   const inputLocked = surveyStep > 0;
-  const inputPlaceholder = inputLocked
+  const questionLimitReached = questionCount >= 3;
+  const inputPlaceholder = questionLimitReached
+    ? "Đã sử dụng hết 3 câu hỏi trong phiên demo."
+    : inputLocked
     ? "Vui lòng chọn một lựa chọn ở trên..."
     : currentDecision
     ? "Nhắn tin cho AI hoặc chọn quyết định bên trên..."
@@ -1611,18 +1646,21 @@ export default function AIAgentPage() {
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="flex-1 flex flex-col min-w-0" style={{ minHeight: "calc(100vh - 12rem)" }}>
           {/* Header */}
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-purple-500/10">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                <path d="M12 8V4H8" />
-                <rect width="16" height="12" x="4" y="8" rx="2" />
-                <path d="M2 14h2M20 14h2M15 13v2M9 13v2" />
-              </svg>
+          <div className="flex items-center justify-between gap-3 mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-purple-500/10">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                  <path d="M12 8V4H8" />
+                  <rect width="16" height="12" x="4" y="8" rx="2" />
+                  <path d="M2 14h2M20 14h2M15 13v2M9 13v2" />
+                </svg>
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-foreground">AI Agent</h1>
+                <p className="text-xs text-muted-foreground">Trợ lý tài chính thông minh</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">AI Agent</h1>
-              <p className="text-xs text-muted-foreground">Trợ lý tài chính thông minh</p>
-            </div>
+            <span className="badge badge-ai text-xs font-semibold shrink-0">{questionCount}/3 câu hỏi</span>
           </div>
 
           {/* Active decision bar */}
@@ -1652,10 +1690,57 @@ export default function AIAgentPage() {
                     <path d="M2 14h2M20 14h2M15 13v2M9 13v2" />
                   </svg>
                 </div>
-                <h2 className="text-xl font-bold mb-2 text-foreground">Hỏi tôi bất kỳ điều gì về thị trường</h2>
-                <p className="text-sm text-muted-foreground mb-8 max-w-md mx-auto">Phân tích cổ phiếu, so sánh mã, tóm tắt tin tức, tạo watchlist AI</p>
-                <div className="flex flex-wrap justify-center gap-2.5 max-w-3xl mx-auto">
-                  {displayPrompts.map((p) => (
+                {!profileSetupOpen ? (
+                  <button
+                    className="btn btn-ai px-7 py-3 text-sm font-bold cursor-pointer"
+                    onClick={() => setProfileSetupOpen(true)}
+                  >
+                    Thiết lập hồ sơ đầu tư
+                  </button>
+                ) : (
+                  <div className="card max-w-3xl mx-auto p-5 text-left space-y-5 border-purple-500/20 bg-purple-500/5">
+                    {[
+                      { label: "Risk", values: ["Phòng thủ", "Cân bằng", "Mạo hiểm"], selected: profileRisk, select: setProfileRisk },
+                      { label: "Horizon", values: ["Dưới 1 năm", "1–3 năm", "3–5 năm", "Trên 5 năm"], selected: profileHorizon, select: setProfileHorizon },
+                      { label: "Maximum drawdown", values: ["5%", "10%", "20%", "30%"], selected: profileDrawdown, select: setProfileDrawdown },
+                    ].map((group) => (
+                      <div key={group.label}>
+                        <p className="text-xs font-bold text-foreground mb-2">{group.label}</p>
+                        <div className="flex flex-wrap gap-2">
+                          {group.values.map((value) => (
+                            <button
+                              key={value}
+                              className={`px-3.5 py-2 rounded-full border text-xs font-semibold transition-all cursor-pointer ${
+                                group.selected === value
+                                  ? "border-purple-500 bg-purple-500 text-white shadow-md shadow-purple-500/20"
+                                  : "border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400"
+                              }`}
+                              onClick={() => group.select(value)}
+                            >
+                              {value}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                    {!profileStarted && (
+                      <button
+                        className="btn btn-ai w-full py-3 font-bold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                        disabled={!profileRisk || !profileHorizon}
+                        onClick={() => setProfileStarted(true)}
+                      >
+                        Bắt đầu hỏi FinPilot
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {profileStarted && (
+                  <div className="mt-8">
+                    <h2 className="text-xl font-bold mb-2 text-foreground">Bạn muốn FinPilot phân tích điều gì?</h2>
+                    <p className="text-sm text-muted-foreground mb-6">Chọn câu hỏi gợi ý hoặc nhập câu hỏi của bạn bên dưới.</p>
+                    <div className="flex flex-wrap justify-center gap-2.5 max-w-3xl mx-auto">
+                      {displayPrompts.map((p) => (
                     <button
                       key={p}
                       className={`badge text-xs cursor-pointer hover:-translate-y-0.5 transition-all ${
@@ -1667,8 +1752,10 @@ export default function AIAgentPage() {
                     >
                       {p}
                     </button>
-                  ))}
-                </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1791,29 +1878,36 @@ export default function AIAgentPage() {
           <div ref={messagesEndRef} />
 
           {/* Chat input */}
-          <div className="flex gap-2.5 mt-auto">
-            <input
-              className="input flex-1 py-3 px-4 text-sm"
-              placeholder={inputPlaceholder}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              disabled={loading}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") sendMessage(input);
-              }}
-              id="ai-chat-input"
-            />
-            <button
-              className="btn btn-ai px-6 flex items-center justify-center cursor-pointer"
-              onClick={() => sendMessage(input)}
-              disabled={loading}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="m22 2-7 20-4-9-4z" />
-                <path d="M22 2 11 13" />
-              </svg>
-            </button>
-          </div>
+          {profileStarted && (
+            <div className="mt-auto">
+              {questionLimitReached && (
+                <p className="text-xs text-center text-muted-foreground mb-2">Bạn đã sử dụng 3/3 câu hỏi trong phiên demo.</p>
+              )}
+              <div className="flex gap-2.5">
+                <input
+                  className="input flex-1 py-3 px-4 text-sm"
+                  placeholder={inputPlaceholder}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  disabled={loading || questionLimitReached}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") sendMessage(input);
+                  }}
+                  id="ai-chat-input"
+                />
+                <button
+                  className="btn btn-ai px-6 flex items-center justify-center cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  onClick={() => sendMessage(input)}
+                  disabled={loading || questionLimitReached}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="m22 2-7 20-4-9-4z" />
+                    <path d="M22 2 11 13" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

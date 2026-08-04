@@ -3,6 +3,12 @@ import { delay } from "@/lib/utils";
 import { getStockBySymbol, STOCKS } from "@/lib/market/mock-data";
 import type { AgentResponse, AgentContext } from "./agent/types";
 
+const SCOPE_REDIRECT = "Câu hỏi này không thuộc mục tiêu phân tích tài chính và quản trị rủi ro của FinPilot. Bạn có thể hỏi tôi về danh mục, mức drawdown, phân bổ vốn, luận điểm đầu tư hoặc kết quả Historical Challenge.";
+
+function isObviouslyUnrelated(message: string): boolean {
+  return /bài thơ|thơ tình|công thức nấu|viết truyện|dịch (?:sang|giúp)|lập trình|viết code|bóng đá|du lịch/i.test(message);
+}
+
 const MOCK_RESPONSES: Record<string, AIAgentResponse> = {
   default: {
     message: "Đây là phân tích tổng quan dựa trên dữ liệu mới nhất.",
@@ -49,6 +55,7 @@ function detectResponseType(message: string): string {
 
 export async function getMockAIResponse(message: string, symbol: string = "AAPL"): Promise<AIAgentResponse> {
   await delay(600 + Math.random() * 400);
+  if (isObviouslyUnrelated(message)) return { message: SCOPE_REDIRECT, cards: [] };
   const type = detectResponseType(message);
 
   if (type === "order") {
@@ -85,12 +92,9 @@ export async function getMockAIResponse(message: string, symbol: string = "AAPL"
 }
 
 export const SUGGESTED_PROMPTS = [
-  "Phân tích AAPL hôm nay",
-  "Tóm tắt tin mới nhất của NVDA",
-  "So sánh TSLA và BYD",
-  "Cổ phiếu nào trong watchlist đang có tín hiệu mạnh?",
-  "Giải thích chỉ số P/E của MSFT",
-  "Tạo lệnh mua cổ phiếu AAPL",
+  "Danh mục của tôi đang chịu rủi ro gì?",
+  "Mức drawdown này có phù hợp với hồ sơ của tôi không?",
+  "FinPilot Guardrails đã thay đổi kết quả Historical Challenge thế nào?",
 ];
 
 export const STOCK_PROMPTS = [
@@ -460,8 +464,26 @@ function parseFeedbackToAgentResponse(
   }
 
   // Default: return acknowledgment with unknown intent
+  if (/drawdown|giảm\s*\d+%|sụt giảm|lỗ/i.test(lower)) {
+    return {
+      message: "Drawdown cần được đánh giá theo giới hạn chịu lỗ, thời hạn đầu tư và mức tập trung danh mục. Với mức giảm đã nêu, hãy kiểm tra nguyên nhân đến từ thị trường chung hay một vị thế riêng lẻ, tránh tăng tỷ trọng vội và xác định trước ngưỡng giảm rủi ro phù hợp.",
+      detectedIntent: 'unknown',
+    };
+  }
+  if (/phân bổ|đa dạng|tỷ trọng|allocation/i.test(lower)) {
+    return {
+      message: "Với hồ sơ cân bằng, nên phân bổ theo nhiều nhóm tài sản và giới hạn tỷ trọng từng vị thế để một mã không chi phối kết quả. Giữ một phần tiền mặt, ưu tiên tài sản cốt lõi đa dạng hóa và chỉ dành tỷ trọng nhỏ hơn cho các vị thế biến động cao.",
+      detectedIntent: 'unknown',
+    };
+  }
+  if (/luận điểm|historical challenge|historical replay|danh mục|rủi ro/i.test(lower)) {
+    return {
+      message: "Hãy đánh giá mục tiêu, thời hạn, mức tập trung và kịch bản thua lỗ của danh mục trước khi điều chỉnh. Một luận điểm đầu tư tốt cần có giả định kiểm chứng được, rủi ro làm luận điểm mất hiệu lực và quy tắc giảm vị thế rõ ràng.",
+      detectedIntent: 'unknown',
+    };
+  }
   return {
-    message: `Đã ghi nhận phản hồi của bạn. Để tôi điều chỉnh khuyến nghị cho phù hợp.`,
+    message: "Hãy cung cấp mục tiêu, thời hạn, mức drawdown có thể chấp nhận và tỷ trọng hiện tại để FinPilot phân tích rủi ro cụ thể hơn.",
     detectedIntent: 'unknown',
   };
 }
@@ -472,6 +494,9 @@ export async function getMockAgentResponse(
   ctx: AgentContext
 ): Promise<AgentResponse> {
   await delay(300 + Math.random() * 300);
+  if (isObviouslyUnrelated(userMessage)) {
+    return { message: SCOPE_REDIRECT, detectedIntent: 'unknown' };
+  }
 
   const structuredCtx: StructuredContext = {
     activeDecision: ctx.activeDecision

@@ -81,7 +81,7 @@ export function PresetSelector({
         <div>
           <h3 className="text-md font-bold text-foreground flex items-center gap-2">
             <SlidersHorizontal className="h-4.5 w-4.5 text-primary" />
-            Cấu hình Chiến lược PISI
+            Cấu hình Chiến lược FinPilot
           </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
             Chọn một preset cấu hình định lượng hoặc tinh chỉnh tham số riêng của bạn.

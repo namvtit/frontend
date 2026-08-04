@@ -277,7 +277,7 @@ const DecisionCard = memo(function DecisionCard({ decision, onResolve }: { decis
 
       <button type="button" onClick={() => setShowWhy(!showWhy)} className={cn("flex items-center gap-1.5 text-[10px] w-full", showWhy ? 'text-foreground' : 'text-muted-foreground')}>
         <CircleAlert className="w-3.5 h-3.5" />
-        {showWhy ? 'Ẩn lý do' : 'Xem lý do PISI đề xuất'}
+        {showWhy ? 'Ẩn lý do' : 'Xem lý do FinPilot đề xuất'}
         <ChevronRight className={cn("w-3 h-3 ml-auto transition-transform", showWhy && "rotate-90")} />
       </button>
 
@@ -661,7 +661,7 @@ const WelcomePanel = memo(function WelcomePanel() {
               <Bot className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="font-bold text-foreground">PISI Investment Replay</h2>
+              <h2 className="font-bold text-foreground">FinPilot Investment Replay</h2>
               <p className="text-[10px] text-muted-foreground">Mô phỏng đầu tư 2025</p>
             </div>
           </div>
@@ -678,7 +678,7 @@ const WelcomePanel = memo(function WelcomePanel() {
             <Bot className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h2 className="font-bold text-foreground">PISI Investment Replay</h2>
+            <h2 className="font-bold text-foreground">FinPilot Investment Replay</h2>
             <p className="text-[10px] text-muted-foreground">Mô phỏng đầu tư 2025</p>
           </div>
         </div>

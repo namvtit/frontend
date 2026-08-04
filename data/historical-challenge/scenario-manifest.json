@@ -1,0 +1,602 @@
+[
+  {
+    "id": "sp500-wage-inflation-2018",
+    "market": "sp500",
+    "indexSymbol": "^GSPC",
+    "headline": "Báo cáo việc làm Mỹ làm dấy lên lo ngại lạm phát tiền lương",
+    "sourceName": "U.S. Bureau of Labor Statistics",
+    "sourceUrl": "https://www.bls.gov/news.release/archives/empsit_02022018.htm",
+    "eventDate": "2018-02-02",
+    "decisionDate": "2018-02-02",
+    "category": "Lạm phát",
+    "difficulty": "Trung bình",
+    "preEventContext": "Thị trường bước vào T0 sau một nhịp tăng dài, trong khi lợi suất trái phiếu đã nhích lên. Tăng trưởng tiền lương mạnh hơn làm dấy lên câu hỏi liệu Fed có phải thắt chặt nhanh hơn.",
+    "warningSignals": [
+      "Lợi suất Kho bạc Mỹ đang tăng",
+      "Tiền lương là biến số nhạy cảm với định giá",
+      "Kỳ vọng tăng lãi suất nóng lên"
+    ],
+    "riskLevel": "medium",
+    "educationalFocus": "Đọc tác động của dữ liệu lao động lên định giá thị trường rộng."
+  },
+  {
+    "id": "sp500-fed-hike-2018",
+    "market": "sp500",
+    "indexSymbol": "^GSPC",
+    "headline": "Fed nâng lãi suất tháng 12 giữa lúc thị trường biến động mạnh",
+    "sourceName": "Federal Reserve",
+    "sourceUrl": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20181219a.htm",
+    "eventDate": "2018-12-19",
+    "decisionDate": "2018-12-19",
+    "category": "Lãi suất",
+    "difficulty": "Khó",
+    "preEventContext": "Cổ phiếu Mỹ đã chịu áp lực vì lo ngại tăng trưởng chậm lại và lãi suất đi lên. T0 buộc nhà đầu tư cân nhắc sức chịu đựng của thị trường trước một bước thắt chặt nữa.",
+    "warningSignals": [
+      "Biến động quý IV tăng rõ",
+      "Fed vẫn ưu tiên kiểm soát lạm phát",
+      "Định giá nhạy hơn với lãi suất thực"
+    ],
+    "riskLevel": "high",
+    "educationalFocus": "Đánh giá rủi ro chính sách khi thị trường phụ thuộc vào kỳ vọng lãi suất."
+  },
+  {
+    "id": "sp500-pandemic-2020",
+    "market": "sp500",
+    "indexSymbol": "^GSPC",
+    "headline": "WHO tuyên bố COVID-19 là đại dịch toàn cầu",
+    "sourceName": "World Health Organization",
+    "sourceUrl": "https://www.who.int/news-room/speeches/item/who-director-general-s-opening-remarks-at-the-media-briefing-on-covid-19---11-march-2020",
+    "eventDate": "2020-03-11",
+    "decisionDate": "2020-03-11",
+    "category": "Đại dịch",
+    "difficulty": "Khó",
+    "preEventContext": "Dịch bệnh đã lan rộng và nhiều nước tăng hạn chế đi lại. Tuyên bố đại dịch làm tăng nguy cơ gián đoạn tăng trưởng, lợi nhuận doanh nghiệp và thanh khoản.",
+    "warningSignals": [
+      "Phong tỏa tăng nhanh ở nhiều nước",
+      "Du lịch và hàng không đã suy yếu",
+      "Lo ngại y tế chuyển thành lo ngại suy thoái"
+    ],
+    "riskLevel": "high",
+    "educationalFocus": "Nhận diện cú sốc phi kinh tế lan sang toàn thị trường."
+  },
+  {
+    "id": "sp500-fed-zero-2020",
+    "market": "sp500",
+    "indexSymbol": "^GSPC",
+    "headline": "Fed cắt lãi suất về gần 0% và tái khởi động mua tài sản",
+    "sourceName": "Federal Reserve",
+    "sourceUrl": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20200315a.htm",
+    "eventDate": "2020-03-15",
+    "decisionDate": "2020-03-16",
+    "category": "Thanh khoản",
+    "difficulty": "Khó",
+    "preEventContext": "Fed hành động khẩn cấp cuối tuần trước T0, cho thấy mức độ nghiêm trọng của cú sốc COVID và áp lực thanh khoản. Hỗ trợ chính sách vừa là phao cứu sinh vừa là tín hiệu cảnh báo.",
+    "warningSignals": [
+      "Fed phải họp ngoài lịch",
+      "Ngắt mạch đã xuất hiện nhiều lần",
+      "Nhiều tài sản rủi ro bị bán đồng thời"
+    ],
+    "riskLevel": "high",
+    "educationalFocus": "Phân biệt tin hỗ trợ chính sách với tín hiệu rủi ro hệ thống."
+  },
+  {
+    "id": "sp500-cpi-2021",
+    "market": "sp500",
+    "indexSymbol": "^GSPC",
+    "headline": "CPI Mỹ tháng 10/2021 tăng 6,2%, làm nóng lại câu chuyện lạm phát",
+    "sourceName": "U.S. Bureau of Labor Statistics",
+    "sourceUrl": "https://www.bls.gov/news.release/archives/cpi_11102021.htm",
+    "eventDate": "2021-11-10",
+    "decisionDate": "2021-11-10",
+    "category": "Lạm phát",
+    "difficulty": "Trung bình",
+    "preEventContext": "Thị trường đang tranh luận liệu lạm phát chỉ tạm thời hay sẽ buộc Fed đổi hướng nhanh hơn. CPI cao khiến định giá cổ phiếu rộng nhạy hơn với rủi ro lãi suất.",
+    "warningSignals": [
+      "Áp lực giá lan rộng",
+      "Chuỗi cung ứng còn căng",
+      "Kỳ vọng giảm nới lỏng tăng"
+    ],
+    "riskLevel": "medium",
+    "educationalFocus": "Hiểu cách lạm phát dai dẳng gây nén bội số định giá."
+  },
+  {
+    "id": "sp500-ukraine-2022",
+    "market": "sp500",
+    "indexSymbol": "^GSPC",
+    "headline": "Nga tấn công Ukraine, thị trường đối mặt cú sốc địa chính trị lớn",
+    "sourceName": "GovInfo",
+    "sourceUrl": "https://www.govinfo.gov/content/pkg/DCPD-202200110/pdf/DCPD-202200110.pdf",
+    "eventDate": "2022-02-24",
+    "decisionDate": "2022-02-24",
+    "category": "Địa chính trị",
+    "difficulty": "Khó",
+    "preEventContext": "Căng thẳng đã leo thang nhiều tuần và rủi ro trừng phạt năng lượng trở nên hiện hữu. Nhà đầu tư phải cân nhắc tác động lên lạm phát, niềm tin và tăng trưởng.",
+    "warningSignals": [
+      "Giá năng lượng nhạy với xung đột",
+      "Lạm phát vốn đã cao",
+      "Rủi ro trừng phạt và gián đoạn thương mại tăng"
+    ],
+    "riskLevel": "high",
+    "educationalFocus": "Xem cú sốc địa chính trị đánh đồng thời vào tăng trưởng và lạm phát."
+  },
+  {
+    "id": "sp500-cpi-2022",
+    "market": "sp500",
+    "indexSymbol": "^GSPC",
+    "headline": "CPI Mỹ tháng 5/2022 lên 8,6%, làm tan hy vọng lạm phát hạ nhiệt",
+    "sourceName": "U.S. Bureau of Labor Statistics",
+    "sourceUrl": "https://www.bls.gov/news.release/archives/cpi_06102022.htm",
+    "eventDate": "2022-06-10",
+    "decisionDate": "2022-06-10",
+    "category": "Dữ liệu bất ngờ",
+    "difficulty": "Trung bình",
+    "preEventContext": "Nhiều nhà đầu tư kỳ vọng lạm phát có thể đạt đỉnh. Báo cáo mới cho thấy áp lực giá còn nóng và làm tăng xác suất Fed hành động mạnh hơn.",
+    "warningSignals": [
+      "Năng lượng và thực phẩm neo cao",
+      "Kỳ vọng Fed mạnh tay hơn",
+      "Định giá chưa chắc phản ánh lãi suất cao kéo dài"
+    ],
+    "riskLevel": "high",
+    "educationalFocus": "Quan sát tác động của dữ liệu vĩ mô phá kỳ vọng."
+  },
+  {
+    "id": "sp500-fed-2022",
+    "market": "sp500",
+    "indexSymbol": "^GSPC",
+    "headline": "Fed tăng 75 điểm cơ bản và giữ thông điệp chống lạm phát",
+    "sourceName": "Federal Reserve",
+    "sourceUrl": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20220921a.htm",
+    "eventDate": "2022-09-21",
+    "decisionDate": "2022-09-21",
+    "category": "Lãi suất",
+    "difficulty": "Khó",
+    "preEventContext": "Lạm phát vẫn cao và thị trường đang cố đo thời gian lãi suất duy trì ở mức cao. Quyết định của Fed tác động trực tiếp đến tăng trưởng kỳ vọng và hệ số định giá.",
+    "warningSignals": [
+      "Lạm phát lõi chưa an toàn",
+      "Trái phiếu phản ánh lãi suất đỉnh cao hơn",
+      "Nhiều nhóm cổ phiếu nhạy với discount rate"
+    ],
+    "riskLevel": "high",
+    "educationalFocus": "Ra quyết định có kỷ luật trong môi trường lãi suất cao."
+  },
+  {
+    "id": "sp500-svb-2023",
+    "market": "sp500",
+    "indexSymbol": "^GSPC",
+    "headline": "Mỹ công bố biện pháp bảo vệ người gửi tiền sau cú sốc SVB",
+    "sourceName": "FDIC / Treasury / Federal Reserve",
+    "sourceUrl": "https://www.fdic.gov/news/press-releases/2023/pr23017.html",
+    "eventDate": "2023-03-12",
+    "decisionDate": "2023-03-13",
+    "category": "Ngân hàng",
+    "difficulty": "Khó",
+    "preEventContext": "Sau khi Silicon Valley Bank sụp đổ, nhà đầu tư phải phân biệt sự cố cá biệt với căng thẳng tín dụng rộng hơn. Biện pháp hỗ trợ giảm rủi ro tức thời nhưng không xóa lo ngại hệ thống.",
+    "warningSignals": [
+      "Lợi suất ngắn hạn biến động mạnh",
+      "Ngân hàng khu vực chịu áp lực",
+      "Hỗ trợ khẩn cấp cho thấy niềm tin bị thử thách"
+    ],
+    "riskLevel": "high",
+    "educationalFocus": "Hiểu vì sao hỗ trợ ổn định không đồng nghĩa rủi ro đã hết."
+  },
+  {
+    "id": "sp500-cpi-2024",
+    "market": "sp500",
+    "indexSymbol": "^GSPC",
+    "headline": "CPI tháng 3/2024 nóng hơn kỳ vọng, đẩy lùi câu chuyện cắt giảm lãi suất",
+    "sourceName": "U.S. Bureau of Labor Statistics",
+    "sourceUrl": "https://www.bls.gov/news.release/archives/cpi_04102024.htm",
+    "eventDate": "2024-04-10",
+    "decisionDate": "2024-04-10",
+    "category": "Lạm phát",
+    "difficulty": "Trung bình",
+    "preEventContext": "Thị trường vẫn kỳ vọng Fed có thể giảm lãi suất trong năm. CPI nóng khiến chỉ số rộng đối diện rủi ro điều chỉnh kỳ vọng chính sách.",
+    "warningSignals": [
+      "Kỳ vọng cắt giảm đã hỗ trợ định giá",
+      "Lạm phát dịch vụ dai dẳng",
+      "Dữ liệu nóng có thể kéo lợi suất lên"
+    ],
+    "riskLevel": "medium",
+    "educationalFocus": "Thấy tác động lớn của thay đổi nhỏ trong kỳ vọng chính sách."
+  },
+  {
+    "id": "nasdaq-facebook-2018",
+    "market": "nasdaq",
+    "indexSymbol": "^IXIC",
+    "headline": "Facebook gây sốc với tăng trưởng chậm lại và chi phí tăng mạnh",
+    "sourceName": "Facebook Investor Relations",
+    "sourceUrl": "https://investor.fb.com/files/doc_financials/2018/Q2/Facebook-Reports-Second-Quarter-2018-Results.pdf",
+    "eventDate": "2018-07-25",
+    "decisionDate": "2018-07-26",
+    "category": "Kết quả công nghệ",
+    "difficulty": "Trung bình",
+    "preEventContext": "Nhà đầu tư vừa hấp thụ báo cáo với tín hiệu doanh thu chậm lại và chi phí tăng. Một mega-cap có thể lan cú sốc sang tâm lý toàn Nasdaq.",
+    "warningSignals": [
+      "Định giá mạng xã hội nhạy cảm",
+      "Chi phí tuân thủ tăng",
+      "Rủi ro tập trung vào vài cổ phiếu dẫn dắt"
+    ],
+    "riskLevel": "high",
+    "educationalFocus": "Nhận diện rủi ro tập trung lợi nhuận ở mega-cap."
+  },
+  {
+    "id": "nasdaq-apple-2019",
+    "market": "nasdaq",
+    "indexSymbol": "^IXIC",
+    "headline": "Apple cắt ước tính doanh thu, làm lộ rõ rủi ro nhu cầu và Trung Quốc",
+    "sourceName": "U.S. SEC / Apple",
+    "sourceUrl": "https://www.sec.gov/Archives/edgar/data/320193/000032019319000002/a8-kexhibit991122019.htm",
+    "eventDate": "2019-01-02",
+    "decisionDate": "2019-01-03",
+    "category": "Kết quả công nghệ",
+    "difficulty": "Khó",
+    "preEventContext": "Lá thư của Tim Cook cảnh báo doanh thu thấp hơn dự kiến, đặc biệt do nhu cầu iPhone yếu hơn ở Trung Quốc. T0 kiểm tra rủi ro chu kỳ sản phẩm và nhu cầu toàn cầu.",
+    "warningSignals": [
+      "Phần cứng phụ thuộc nhu cầu quốc tế",
+      "Trung Quốc là biến số lớn",
+      "Mega-cap có thể kéo cả chỉ số"
+    ],
+    "riskLevel": "high",
+    "educationalFocus": "Hiểu cách cảnh báo doanh thu khiến thị trường đánh giá lại công nghệ."
+  },
+  {
+    "id": "nasdaq-supply-chain-2019",
+    "market": "nasdaq",
+    "indexSymbol": "^IXIC",
+    "headline": "Lệnh về chuỗi cung ứng ICT làm nóng rủi ro bán dẫn và phần cứng",
+    "sourceName": "Federal Register",
+    "sourceUrl": "https://www.federalregister.gov/documents/2019/05/17/2019-10538/securing-the-information-and-communications-technology-and-services-supply-chain",
+    "eventDate": "2019-05-15",
+    "decisionDate": "2019-05-16",
+    "category": "Quy định",
+    "difficulty": "Khó",
+    "preEventContext": "T0 diễn ra khi nguy cơ siết chuỗi cung ứng công nghệ và thương mại xuyên biên giới tăng. Nasdaq nhạy với bán dẫn, phần cứng và doanh thu toàn cầu.",
+    "warningSignals": [
+      "Căng thẳng Mỹ - Trung leo thang",
+      "Chuỗi cung ứng xuyên biên giới cao",
+      "Bán dẫn nhạy với thay đổi quy định"
+    ],
+    "riskLevel": "high",
+    "educationalFocus": "Đánh giá rủi ro chính sách và chuỗi cung ứng công nghệ."
+  },
+  {
+    "id": "nasdaq-fed-cut-2020",
+    "market": "nasdaq",
+    "indexSymbol": "^IXIC",
+    "headline": "Fed cắt khẩn cấp 50 điểm cơ bản giữa lo ngại COVID-19",
+    "sourceName": "Federal Reserve",
+    "sourceUrl": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20200303a.htm",
+    "eventDate": "2020-03-03",
+    "decisionDate": "2020-03-03",
+    "category": "Lãi suất",
+    "difficulty": "Trung bình",
+    "preEventContext": "Nasdaq thường hưởng lợi từ lãi suất thấp, nhưng cú cắt ngoài lịch cũng báo hiệu cú sốc kinh tế nghiêm trọng hơn dự báo.",
+    "warningSignals": [
+      "Fed hành động ngoài lịch",
+      "Biến động COVID lan nhanh",
+      "Công nghệ nhạy với cả lãi suất và lợi nhuận"
+    ],
+    "riskLevel": "high",
+    "educationalFocus": "Phân biệt lợi ích lãi suất thấp với rủi ro suy giảm lợi nhuận."
+  },
+  {
+    "id": "nasdaq-vaccine-2020",
+    "market": "nasdaq",
+    "indexSymbol": "^IXIC",
+    "headline": "Tin vaccine hiệu quả kích hoạt rủi ro xoay vòng khỏi công nghệ",
+    "sourceName": "Pfizer",
+    "sourceUrl": "https://www.pfizer.com/news/press-release/press-release-detail/pfizer-and-biontech-announce-vaccine-candidate-against",
+    "eventDate": "2020-11-09",
+    "decisionDate": "2020-11-09",
+    "category": "Xoay vòng hậu đại dịch",
+    "difficulty": "Trung bình",
+    "preEventContext": "Tin vaccine xuất hiện khi Nasdaq đã hưởng lợi lớn từ xu hướng ở nhà. Nhà đầu tư phải cân nhắc nguy cơ dòng tiền chuyển sang nhóm chu kỳ.",
+    "warningSignals": [
+      "Công nghệ đã tăng mạnh",
+      "Dòng tiền có thể xoay sang reopening",
+      "Lợi suất có thể tăng theo kỳ vọng tăng trưởng"
+    ],
+    "riskLevel": "medium",
+    "educationalFocus": "Hiểu tin tốt cho kinh tế không luôn tốt nhất cho công nghệ."
+  },
+  {
+    "id": "nasdaq-meta-2022",
+    "market": "nasdaq",
+    "indexSymbol": "^IXIC",
+    "headline": "Meta báo tăng trưởng chững lại và chi phí metaverse tăng",
+    "sourceName": "Meta Investor Relations",
+    "sourceUrl": "https://investor.atmeta.com/investor-news/press-release-details/2022/Meta-Reports-Fourth-Quarter-and-Full-Year-2021-Results/default.aspx",
+    "eventDate": "2022-02-02",
+    "decisionDate": "2022-02-03",
+    "category": "Kết quả công nghệ",
+    "difficulty": "Khó",
+    "preEventContext": "Báo cáo Meta cho thấy tăng trưởng chậm lại và chi phí đầu tư lớn. T0 đặt câu hỏi liệu đây là chuyện riêng hay dấu hiệu định giá công nghệ cần điều chỉnh.",
+    "warningSignals": [
+      "Quảng cáo số tăng không đồng đều",
+      "Đầu tư dài hạn ăn mòn biên lợi nhuận",
+      "Mega-cap có sức nặng lớn"
+    ],
+    "riskLevel": "high",
+    "educationalFocus": "Tách tăng trưởng dài hạn khỏi rủi ro thực thi ngắn hạn."
+  },
+  {
+    "id": "nasdaq-cpi-2022",
+    "market": "nasdaq",
+    "indexSymbol": "^IXIC",
+    "headline": "CPI tháng 10/2022 thấp hơn kỳ vọng, làm nổi bật độ nhạy lãi suất của Nasdaq",
+    "sourceName": "U.S. Bureau of Labor Statistics",
+    "sourceUrl": "https://www.bls.gov/news.release/archives/cpi_11102022.htm",
+    "eventDate": "2022-11-10",
+    "decisionDate": "2022-11-10",
+    "category": "Dữ liệu bất ngờ",
+    "difficulty": "Dễ",
+    "preEventContext": "Nhà đầu tư đang tìm dấu hiệu Fed có thể giảm tốc thắt chặt. Dữ liệu CPI dịu hơn đặc biệt quan trọng với định giá cổ phiếu tăng trưởng.",
+    "warningSignals": [
+      "Nasdaq chịu áp lực vì tăng lãi suất",
+      "Kỳ vọng chính sách có thể đảo nhanh",
+      "Vị thế một chiều làm biến động lớn"
+    ],
+    "riskLevel": "medium",
+    "educationalFocus": "Hiểu vì sao dữ liệu lạm phát tác động mạnh tới Nasdaq."
+  },
+  {
+    "id": "nasdaq-nvidia-ai-2023",
+    "market": "nasdaq",
+    "indexSymbol": "^IXIC",
+    "headline": "NVIDIA nâng triển vọng doanh thu, thổi bùng kỳ vọng AI",
+    "sourceName": "NVIDIA Investor Relations",
+    "sourceUrl": "https://investor.nvidia.com/news/press-release-details/2023/NVIDIA-Announces-Financial-Results-for-First-Quarter-Fiscal-2024/",
+    "eventDate": "2023-05-24",
+    "decisionDate": "2023-05-25",
+    "category": "AI",
+    "difficulty": "Trung bình",
+    "preEventContext": "Báo cáo cho thấy nhu cầu AI có thể thúc đẩy chu kỳ đầu tư chip và hạ tầng mới. Câu hỏi tại T0 là bao nhiêu kỳ vọng đã phản ánh vào giá.",
+    "warningSignals": [
+      "Kỳ vọng tập trung vào AI",
+      "Định giá bán dẫn mở rộng nhanh",
+      "Một cổ phiếu dẫn dắt có thể lan tâm lý"
+    ],
+    "riskLevel": "medium",
+    "educationalFocus": "Quan sát upside công nghệ mới cùng rủi ro định giá và tập trung."
+  },
+  {
+    "id": "nasdaq-netflix-2024",
+    "market": "nasdaq",
+    "indexSymbol": "^IXIC",
+    "headline": "Netflix công bố tăng thuê bao mạnh, thử thách cách định giá tăng trưởng",
+    "sourceName": "Netflix Investor Relations",
+    "sourceUrl": "https://ir.netflix.net/files/doc_financials/2023/q4/NEW-FINAL-Q4-23-Shareholder-Letter.pdf",
+    "eventDate": "2024-01-23",
+    "decisionDate": "2024-01-24",
+    "category": "Kết quả công nghệ",
+    "difficulty": "Trung bình",
+    "preEventContext": "Netflix vừa công bố tăng trưởng thuê bao mạnh. Nhà đầu tư phải quyết định liệu đây là câu chuyện riêng hay củng cố khẩu vị với nền tảng tăng trưởng.",
+    "warningSignals": [
+      "Thị trường đòi hỏi lợi nhuận thực chất",
+      "Nền tảng số có thể kéo tâm lý Nasdaq",
+      "Định giá phản ứng mạnh với bất ngờ"
+    ],
+    "riskLevel": "medium",
+    "educationalFocus": "Phân biệt tăng trưởng người dùng, lợi nhuận và mức định giá."
+  },
+  {
+    "id": "nasdaq-apple-antitrust-2024",
+    "market": "nasdaq",
+    "indexSymbol": "^IXIC",
+    "headline": "DOJ kiện Apple, làm nổi bật rủi ro chống độc quyền với Big Tech",
+    "sourceName": "U.S. Department of Justice",
+    "sourceUrl": "https://www.justice.gov/archives/opa/pr/justice-department-sues-apple-monopolizing-smartphone-markets",
+    "eventDate": "2024-03-21",
+    "decisionDate": "2024-03-21",
+    "category": "Quy định",
+    "difficulty": "Trung bình",
+    "preEventContext": "Một vụ kiện chống độc quyền lớn nhắm vào Apple khi mega-cap đang dẫn dắt chỉ số. Thị trường phải gắn xác suất pháp lý mới cho nhóm nền tảng.",
+    "warningSignals": [
+      "Áp lực chống độc quyền tích tụ",
+      "Apple ảnh hưởng lớn tới tâm lý",
+      "Rủi ro pháp lý khó định lượng và kéo dài"
+    ],
+    "riskLevel": "medium",
+    "educationalFocus": "Đánh giá cách cú sốc pháp lý thay đổi tăng trưởng và multiple."
+  },
+  {
+    "id": "dow-trade-war-2018",
+    "market": "dow",
+    "indexSymbol": "^DJI",
+    "headline": "Mỹ công bố hành động mạnh với Trung Quốc, gây lo ngại chiến tranh thương mại",
+    "sourceName": "United States Trade Representative",
+    "sourceUrl": "https://ustr.gov/about-us/policy-offices/press-office/press-releases/2018/march/president-trump-announces-strong",
+    "eventDate": "2018-03-22",
+    "decisionDate": "2018-03-23",
+    "category": "Gián đoạn công nghiệp",
+    "difficulty": "Trung bình",
+    "preEventContext": "Nguy cơ leo thang thương mại đặc biệt nhạy với doanh nghiệp công nghiệp và xuất khẩu lớn trong Dow. Rủi ro gồm thuế quan, chi phí và niềm tin thương mại.",
+    "warningSignals": [
+      "Dow có nhiều doanh nghiệp đa quốc gia",
+      "Thuế quan ảnh hưởng chi phí và nhu cầu",
+      "Đàm phán mang tính chính trị cao"
+    ],
+    "riskLevel": "high",
+    "educationalFocus": "Hiểu tác động thương mại lên chỉ số thiên về công nghiệp."
+  },
+  {
+    "id": "dow-boeing-2019",
+    "market": "dow",
+    "indexSymbol": "^DJI",
+    "headline": "FAA ra lệnh cấm bay 737 MAX, tạo cú sốc tập trung vào Boeing",
+    "sourceName": "Federal Aviation Administration",
+    "sourceUrl": "https://www.faa.gov/newsroom/emergency-order-prohibition",
+    "eventDate": "2019-03-13",
+    "decisionDate": "2019-03-13",
+    "category": "Gián đoạn công nghiệp",
+    "difficulty": "Khó",
+    "preEventContext": "Áp lực an toàn và pháp lý lên Boeing tăng mạnh. Với cấu trúc price-weighted, một cổ phiếu giá cao có thể tác động lớn tới Dow.",
+    "warningSignals": [
+      "Dow là chỉ số price-weighted",
+      "Boeing đối mặt rủi ro đa chiều",
+      "Chuỗi cung ứng hàng không lan tỏa rộng"
+    ],
+    "riskLevel": "high",
+    "educationalFocus": "Nhận diện rủi ro tập trung cấu trúc của Dow."
+  },
+  {
+    "id": "dow-ism-2019",
+    "market": "dow",
+    "indexSymbol": "^DJI",
+    "headline": "ISM sản xuất xuống 47,8, làm nóng lo ngại suy giảm công nghiệp",
+    "sourceName": "Institute for Supply Management via PR Newswire",
+    "sourceUrl": "https://www.prnewswire.com/news-releases/pmi-at-47-8-september-manufacturing-ism-report-on-business-300927916.html",
+    "eventDate": "2019-10-01",
+    "decisionDate": "2019-10-01",
+    "category": "Lo ngại suy thoái",
+    "difficulty": "Trung bình",
+    "preEventContext": "Chiến tranh thương mại và giảm tốc toàn cầu đã phủ bóng lên công nghiệp. ISM dưới 50 củng cố câu chuyện khu vực sản xuất co lại.",
+    "warningSignals": [
+      "PMI dưới 50 báo hiệu co hẹp",
+      "Công nghiệp nhạy với đơn hàng",
+      "Dow nhạy với chu kỳ kinh tế thực"
+    ],
+    "riskLevel": "medium",
+    "educationalFocus": "Đọc tín hiệu chu kỳ qua dữ liệu hoạt động kinh doanh."
+  },
+  {
+    "id": "dow-vaccine-2020",
+    "market": "dow",
+    "indexSymbol": "^DJI",
+    "headline": "Tin vaccine hiệu quả mở ra kịch bản phục hồi cho cổ phiếu chu kỳ",
+    "sourceName": "Pfizer",
+    "sourceUrl": "https://www.pfizer.com/news/press-release/press-release-detail/pfizer-and-biontech-announce-vaccine-candidate-against",
+    "eventDate": "2020-11-09",
+    "decisionDate": "2020-11-09",
+    "category": "Mở cửa kinh tế",
+    "difficulty": "Dễ",
+    "preEventContext": "Tin vaccine xuất hiện khi nhiều cổ phiếu công nghiệp, tài chính và tiêu dùng truyền thống còn bị nén. T0 kiểm tra độ bền của kỳ vọng reopening.",
+    "warningSignals": [
+      "Dow có nhiều cổ phiếu hưởng lợi reopening",
+      "Lợi suất có thể tăng",
+      "Xoay vòng dòng tiền có thể rất nhanh"
+    ],
+    "riskLevel": "medium",
+    "educationalFocus": "Hiểu cơ chế reopening rotation ở nhóm chu kỳ."
+  },
+  {
+    "id": "dow-infrastructure-2021",
+    "market": "dow",
+    "indexSymbol": "^DJI",
+    "headline": "Luật Hạ tầng Mỹ được ký, hỗ trợ kỳ vọng đầu tư chu kỳ dài",
+    "sourceName": "GovInfo",
+    "sourceUrl": "https://www.govinfo.gov/app/details/PLAW-117publ58",
+    "eventDate": "2021-11-15",
+    "decisionDate": "2021-11-16",
+    "category": "Chính sách lớn",
+    "difficulty": "Dễ",
+    "preEventContext": "Luật hạ tầng vừa được ký. Nhà đầu tư Dow phải cân nhắc tác động trung hạn lên công nghiệp, logistics và tăng trưởng thay vì chỉ phản ứng với tiêu đề.",
+    "warningSignals": [
+      "Dow nhạy với đầu tư hạ tầng",
+      "Hiệu ứng tài khóa đến chậm",
+      "Kỳ vọng tăng trưởng có thể kéo lợi suất lên"
+    ],
+    "riskLevel": "low",
+    "educationalFocus": "Phân biệt hỗ trợ dài hạn với phản ứng giá ngắn hạn."
+  },
+  {
+    "id": "dow-ukraine-energy-2022",
+    "market": "dow",
+    "indexSymbol": "^DJI",
+    "headline": "Xung đột Ukraine làm tăng rủi ro năng lượng và chi phí đầu vào",
+    "sourceName": "GovInfo",
+    "sourceUrl": "https://www.govinfo.gov/content/pkg/DCPD-202200110/pdf/DCPD-202200110.pdf",
+    "eventDate": "2022-02-24",
+    "decisionDate": "2022-02-24",
+    "category": "Năng lượng",
+    "difficulty": "Khó",
+    "preEventContext": "Rủi ro địa chính trị chuyển thành nguy cơ tăng giá năng lượng và logistics. Dow đặc biệt nhạy với cú sốc chi phí đầu vào.",
+    "warningSignals": [
+      "Dầu khí có thể phản ứng mạnh",
+      "Biên lợi nhuận nhạy với vận tải",
+      "Tăng trưởng toàn cầu có thể chậm lại"
+    ],
+    "riskLevel": "high",
+    "educationalFocus": "Hiểu áp lực kép lên doanh thu và biên lợi nhuận."
+  },
+  {
+    "id": "dow-fed-2022",
+    "market": "dow",
+    "indexSymbol": "^DJI",
+    "headline": "Fed tăng 75 điểm cơ bản, thử sức chịu đựng của nhóm tài chính và chu kỳ",
+    "sourceName": "Federal Reserve",
+    "sourceUrl": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20220615a.htm",
+    "eventDate": "2022-06-15",
+    "decisionDate": "2022-06-15",
+    "category": "Lãi suất",
+    "difficulty": "Khó",
+    "preEventContext": "Lạm phát cao buộc Fed hành động quyết liệt. Với Dow, lãi suất tác động đến tín dụng, đầu tư doanh nghiệp và xác suất giảm tốc.",
+    "warningSignals": [
+      "Mức tăng lãi suất rất lớn",
+      "Chu kỳ nhạy với tín dụng",
+      "Tài chính hưởng biên lãi nhưng chịu rủi ro tăng trưởng"
+    ],
+    "riskLevel": "high",
+    "educationalFocus": "Đánh giá trade-off lãi suất và cấu trúc ngành của Dow."
+  },
+  {
+    "id": "dow-svb-2023",
+    "market": "dow",
+    "indexSymbol": "^DJI",
+    "headline": "Sau SVB, nhà đầu tư cân nhắc rủi ro lan sang tài chính lớn",
+    "sourceName": "FDIC / Treasury / Federal Reserve",
+    "sourceUrl": "https://www.fdic.gov/news/press-releases/2023/pr23017.html",
+    "eventDate": "2023-03-12",
+    "decisionDate": "2023-03-13",
+    "category": "Ngân hàng",
+    "difficulty": "Khó",
+    "preEventContext": "Biện pháp bảo vệ người gửi tiền xoa dịu phần nào tâm lý, nhưng Dow vẫn đối diện nguy cơ tín dụng bị siết và tăng trưởng yếu hơn.",
+    "warningSignals": [
+      "Ngân hàng khu vực biến động mạnh",
+      "Niềm tin tài chính là biến số cốt lõi",
+      "Siết tín dụng lan sang ngành chu kỳ"
+    ],
+    "riskLevel": "high",
+    "educationalFocus": "Nhìn rủi ro cấp hai của khủng hoảng ngân hàng."
+  },
+  {
+    "id": "dow-fitch-2023",
+    "market": "dow",
+    "indexSymbol": "^DJI",
+    "headline": "Fitch hạ bậc tín nhiệm Mỹ xuống AA+, gây áp lực lên khẩu vị rủi ro",
+    "sourceName": "Fitch Ratings",
+    "sourceUrl": "https://www.fitchratings.com/research/sovereigns/fitch-downgrades-united-states-long-term-ratings-to-aa-from-aaa-outlook-stable-01-08-2023",
+    "eventDate": "2023-08-01",
+    "decisionDate": "2023-08-02",
+    "category": "Thanh khoản",
+    "difficulty": "Trung bình",
+    "preEventContext": "Việc hạ bậc tái khơi dậy lo ngại tài khóa và chi phí vốn. Lợi suất cao hơn và tâm lý phòng thủ có thể gây sức ép lên ngành chu kỳ.",
+    "warningSignals": [
+      "Chi phí vốn có thể bị định giá lại",
+      "Công nghiệp nhạy với lợi suất",
+      "Tâm lý có thể chuyển nhanh sang phòng thủ"
+    ],
+    "riskLevel": "medium",
+    "educationalFocus": "Hiểu cú sốc tín nhiệm truyền qua lợi suất và chi phí vốn."
+  },
+  {
+    "id": "dow-jobs-2024",
+    "market": "dow",
+    "indexSymbol": "^DJI",
+    "headline": "Báo cáo việc làm tháng 7/2024 làm dấy lên lo ngại tăng trưởng chậm lại",
+    "sourceName": "U.S. Bureau of Labor Statistics",
+    "sourceUrl": "https://www.bls.gov/news.release/archives/empsit_08022024.htm",
+    "eventDate": "2024-08-02",
+    "decisionDate": "2024-08-02",
+    "category": "Lo ngại suy thoái",
+    "difficulty": "Trung bình",
+    "preEventContext": "Báo cáo cho thấy thất nghiệp tăng và đà tuyển dụng chậm lại. Đây là tín hiệu quan trọng với nhu cầu hàng hóa, tài chính và hoạt động kinh doanh truyền thống.",
+    "warningSignals": [
+      "Tăng trưởng việc làm đã chậm",
+      "Thất nghiệp đi lên kích hoạt lo ngại suy thoái",
+      "Cổ phiếu chu kỳ nhạy với lao động yếu"
+    ],
+    "riskLevel": "medium",
+    "educationalFocus": "Đọc dữ liệu lao động như tín hiệu chu kỳ cho Dow."
+  }
+]

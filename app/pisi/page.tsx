@@ -1058,7 +1058,7 @@ export default function PisiSimulatorPage() {
               Nguồn gốc Công thức & Mô hình Lý thuyết (Engine Methodology)
             </h2>
             <p className="text-xs text-muted-foreground max-w-3xl leading-relaxed">
-              Các chỉ số định lượng, quy tắc giải ngân và hạn mức rủi ro trong PISI Engine được nghiên cứu và thiết lập dựa trên các công trình tài chính học thuật kinh kinh điển:
+              Các chỉ số định lượng, quy tắc giải ngân và hạn mức rủi ro trong FinPilot Engine được nghiên cứu và thiết lập dựa trên các công trình tài chính học thuật kinh kinh điển:
             </p>
           </div>
 

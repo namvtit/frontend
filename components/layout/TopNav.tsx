@@ -7,7 +7,6 @@ import { useTheme } from "next-themes";
 import { TickerBanner } from "@/components/market/ticker-banner";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useDemo } from "@/lib/demo";
-import { STOCKS } from "@/lib/market/mock-data";
 
 function ThemeToggle() {
   const { theme, setTheme } = useTheme();
@@ -30,122 +29,11 @@ const NAV_ITEMS = [
   { name: "Markets", href: "/markets" },
   { name: "News", href: "/news" },
   { name: "Dashboard", href: "/dashboard" },
-  { name: "PISI Sim", href: "/pisi" },
+  { name: "FinPilot", href: "/pisi" },
   { name: "AI Agent", href: "/ai-agent" },
   { name: "Enterprise", href: "/enterprise" },
   { name: "Pricing", href: "/pricing" },
 ];
-
-/* ── Global Search ── */
-function GlobalSearch() {
-  const [query, setQuery] = useState("");
-  const [open, setOpen] = useState(false);
-  const router = useRouter();
-  const ref = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const results = query.length >= 1
-    ? STOCKS.filter(
-        (s) =>
-          s.symbol.toLowerCase().includes(query.toLowerCase()) ||
-          s.name.toLowerCase().includes(query.toLowerCase())
-      ).slice(0, 6)
-    : [];
-
-  // Close on outside click
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-        setQuery("");
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
-
-  // Keyboard shortcut: Cmd/Ctrl+K
-  useEffect(() => {
-    function handleKey(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        e.preventDefault();
-        setOpen(true);
-        setTimeout(() => inputRef.current?.focus(), 0);
-      }
-      if (e.key === "Escape") {
-        setOpen(false);
-        setQuery("");
-      }
-    }
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, []);
-
-  const handleSelect = (symbol: string) => {
-    router.push(`/stocks/${symbol}`);
-    setOpen(false);
-    setQuery("");
-  };
-
-  return (
-    <div className="hidden lg:block relative" ref={ref}>
-      <div className="relative">
-        <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-        </svg>
-        <input
-          ref={inputRef}
-          className="w-64 pl-9 pr-8 py-2 rounded-lg border border-border bg-background text-foreground placeholder-muted-foreground text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-          placeholder="Search stocks... (Ctrl+K)"
-          value={query}
-          onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
-          onFocus={() => setOpen(true)}
-          id="global-search"
-          autoComplete="off"
-        />
-        <kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground hidden group-hover:inline">⌘K</kbd>
-      </div>
-
-      {open && (
-        <div className="absolute right-0 top-full mt-1 w-72 rounded-lg border border-border bg-card shadow-2xl z-50 overflow-hidden slide-up">
-          {query.length === 0 ? (
-            <div className="px-4 py-6 text-center text-sm text-muted-foreground">
-              Nhập tên hoặc mã cổ phiếu...
-            </div>
-          ) : results.length === 0 ? (
-            <div className="px-4 py-6 text-center text-sm text-muted-foreground">
-              Không tìm thấy kết quả cho &ldquo;{query}&rdquo;
-            </div>
-          ) : (
-            <div>
-              {results.map((stock) => {
-                const isUp = stock.changePercent >= 0;
-                return (
-                  <button
-                    key={stock.symbol}
-                    onClick={() => handleSelect(stock.symbol)}
-                    className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-secondary/50 transition-colors text-left"
-                  >
-                    <div>
-                      <span className="text-sm font-semibold text-foreground">{stock.symbol}</span>
-                      <span className="text-xs text-muted-foreground ml-2">{stock.name}</span>
-                    </div>
-                    <div className="text-right shrink-0 ml-2">
-                      <div className="text-sm font-medium text-foreground">${stock.price.toFixed(2)}</div>
-                      <div className={`text-xs ${isUp ? 'text-emerald-500' : 'text-red-500'}`}>
-                        {isUp ? '+' : ''}{stock.changePercent.toFixed(2)}%
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
 
 /* ── Notification Dropdown ── */
 function NotificationDropdown() {
@@ -368,9 +256,8 @@ export function TopNav() {
               ))}
             </div>
 
-            {/* Search + Theme + Notifications + Auth */}
+            {/* Theme + Notifications + Auth */}
             <div className="flex items-center gap-2">
-              <GlobalSearch />
 
               <ThemeToggle />
 
