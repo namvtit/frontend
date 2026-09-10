@@ -88,7 +88,7 @@ function getAlertLabel(type: string) {
 }
 
 export function AiTradingSuggestions() {
-  const { state, dispatch, executeBuy, executeSell, getPrice } = useDemo();
+  const { state, dispatch, executeBuy, executeSell, getPrice, trading, accountLoading } = useDemo();
   const [alerts, setAlerts] = useState<AiAlert[]>(INITIAL_ALERTS);
   const [expandedAlert, setExpandedAlert] = useState<string | null>(null);
   
@@ -101,7 +101,7 @@ export function AiTradingSuggestions() {
   const livePrice = tradeModal ? (getPrice(tradeModal.symbol) || stockInfo?.price || 0) : 0;
   const qty = parseInt(quantity) || 0;
   const estimatedValue = qty * livePrice;
-  const fee = estimatedValue * 0.0015;
+  const fee = 0;
   const totalCost = estimatedValue + (tradeModal?.action === 'buy' ? fee : -fee);
 
   const cashBalance = state.cashBalance;
@@ -110,7 +110,7 @@ export function AiTradingSuggestions() {
 
   const isBuyDisabled = tradeModal?.action === 'buy' && totalCost > cashBalance;
   const isSellDisabled = tradeModal?.action === 'sell' && qty > currentHolding;
-  const isSubmitDisabled = qty <= 0 || (tradeModal?.action === 'buy' ? isBuyDisabled : isSellDisabled);
+  const isSubmitDisabled = trading || accountLoading || qty <= 0 || (tradeModal?.action === 'buy' ? isBuyDisabled : isSellDisabled);
 
   // Trigger simulated new alert
   const handleSimulateAlert = () => {
@@ -171,46 +171,13 @@ export function AiTradingSuggestions() {
     setAlerts((prev) => prev.filter((a) => a.id !== id));
   };
 
-  const handleExecuteTrade = () => {
+  const handleExecuteTrade = async () => {
     if (!tradeModal || !stockInfo || isSubmitDisabled) return;
     const { symbol, action } = tradeModal;
     const actualName = stockInfo.name;
 
-    if (action === 'buy') {
-      const success = executeBuy(symbol, actualName, qty, livePrice);
-      if (success) {
-        pushToast({
-          title: 'Khớp lệnh mua thành công',
-          message: `Đã mua ${qty} CP ${symbol} từ Cảnh báo AI @ $${livePrice.toFixed(2)}.`,
-          type: 'success',
-          icon: '✅',
-        });
-      } else {
-        pushToast({
-          title: 'Giao dịch thất bại',
-          message: 'Số dư không khả dụng.',
-          type: 'alert',
-          icon: '❌',
-        });
-      }
-    } else {
-      const success = executeSell(symbol, actualName, qty, livePrice);
-      if (success) {
-        pushToast({
-          title: 'Khớp lệnh bán thành công',
-          message: `Đã bán ${qty} CP ${symbol} từ Cảnh báo AI @ $${livePrice.toFixed(2)}.`,
-          type: 'success',
-          icon: '💰',
-        });
-      } else {
-        pushToast({
-          title: 'Giao dịch thất bại',
-          message: 'Số lượng cổ phiếu sở hữu không đủ.',
-          type: 'alert',
-          icon: '❌',
-        });
-      }
-    }
+    const success = await (action === 'buy' ? executeBuy : executeSell)(symbol, actualName, qty, livePrice);
+    if (!success) return;
     setTradeModal(null);
     setQuantity('10');
   };
@@ -374,7 +341,7 @@ export function AiTradingSuggestions() {
                 <span className="font-bold text-foreground">${estimatedValue.toFixed(2)} USD</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground font-sans">Phí giao dịch (0.15%):</span>
+                <span className="text-muted-foreground font-sans">Phí giao dịch (0%):</span>
                 <span className="font-bold text-foreground">${fee.toFixed(2)} USD</span>
               </div>
               

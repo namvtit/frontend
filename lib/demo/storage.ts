@@ -5,31 +5,24 @@ import { createSeedState } from './seed';
 const STORAGE_KEY = 'trading_demo_state';
 
 export function loadState(): DemoState {
-  if (typeof window === 'undefined') return createSeedState();
+  if (typeof window === 'undefined') return { ...createSeedState(), cashBalance: 0, notifications: [], feeRate: 0 };
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
-    if (!raw) return createSeedState();
+    if (!raw) return { ...createSeedState(), cashBalance: 0, notifications: [], feeRate: 0 };
     const parsed = JSON.parse(raw) as DemoState;
-    // Basic sanity check
-    if (
-      typeof parsed.cashBalance !== 'number' ||
-      !parsed.holdings ||
-      !Array.isArray(parsed.transactions) ||
-      !Array.isArray(parsed.watchlist)
-    ) {
-      return createSeedState();
-    }
-    return parsed;
+    if (!Array.isArray(parsed.watchlist)) return { ...createSeedState(), cashBalance: 0, notifications: [], feeRate: 0 };
+    return { ...parsed, cashBalance: 0, holdings: {}, transactions: [], feeRate: 0 };
   } catch {
-    return createSeedState();
+    return { ...createSeedState(), cashBalance: 0, notifications: [], feeRate: 0 };
   }
 }
 
 export function saveState(state: DemoState): void {
   if (typeof window === 'undefined') return;
   try {
-    state.lastUpdatedAt = new Date().toISOString();
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    const { cashBalance, holdings, transactions, ...preferences } = state;
+    void cashBalance; void holdings; void transactions;
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(preferences));
   } catch {
     // sessionStorage full or unavailable — ignore
   }

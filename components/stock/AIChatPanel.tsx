@@ -186,23 +186,12 @@ export default function AIChatPanel({ symbol, stockName, currentPrice, changePer
     setShowConfirmModal(true);
   };
 
-  const handleConfirmTrade = () => {
+  const handleConfirmTrade = async () => {
     if (!pendingRec) return;
     const { suggestedQty, price, symbol: recSym } = pendingRec;
-    const gross = suggestedQty * price;
-    const fee = gross * 0.0015;
-    const total = gross + fee;
-
-    const success = executeBuy(recSym, stockName, suggestedQty, price);
+    const success = await executeBuy(recSym, stockName, suggestedQty, price);
 
     if (success) {
-      pushToast({
-        title: `Đặt lệnh thành công`,
-        message: `Đã mua ${suggestedQty} cổ phiếu ${recSym} @ $${price.toFixed(2)}`,
-        type: 'success',
-        icon: '✅',
-      });
-
       // Calculate current allocation percent after trade
       const newHoldingQty = (state.holdings[recSym]?.quantity ?? 0) + suggestedQty;
       const newHoldingVal = newHoldingQty * price;
@@ -216,12 +205,7 @@ export default function AIChatPanel({ symbol, stockName, currentPrice, changePer
       };
       pushChat(successMsg);
     } else {
-      pushToast({
-        title: 'Đặt lệnh thất bại',
-        message: 'Số dư tiền mặt khả dụng của bạn không đủ.',
-        type: 'alert',
-        icon: '❌',
-      });
+      return;
     }
 
     setShowConfirmModal(false);
@@ -510,8 +494,8 @@ export default function AIChatPanel({ symbol, stockName, currentPrice, changePer
                 <span className="font-bold text-foreground">${(pendingRec.suggestedQty * pendingRec.price).toFixed(2)} USD</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Phí giao dịch (0.15%):</span>
-                <span className="font-bold text-foreground">${(pendingRec.suggestedQty * pendingRec.price * 0.0015).toFixed(2)} USD</span>
+                <span className="text-muted-foreground">Phí giao dịch (0%):</span>
+                <span className="font-bold text-foreground">${(pendingRec.suggestedQty * pendingRec.price * 0).toFixed(2)} USD</span>
               </div>
               <div className="flex justify-between border-t border-border/40 pt-2 mt-2 font-bold text-sm text-purple-600 dark:text-purple-400">
                 <span>Tổng chi phí:</span>

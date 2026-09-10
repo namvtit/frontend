@@ -10,7 +10,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
-  const { login, isLoggedIn } = useAuth();
+  const { login, isLoggedIn, loading: authLoading } = useAuth();
 
   // If already logged in, redirect
   useEffect(() => {
@@ -25,37 +25,19 @@ export default function LoginPage() {
     setError("");
 
     try {
-      // Validate against stored accounts in localStorage
-      const accounts = JSON.parse(localStorage.getItem("pisi_accounts") || "[]");
-      const account = accounts.find((a: { email: string; passwordHash: string }) => a.email === email);
-
-      if (!account) {
-        setError("Email chưa được đăng ký. Vui lòng đăng ký tài khoản mới.");
-        setLoading(false);
-        return;
-      }
-
-      // Check password (demo: base64 comparison — do not use for real auth)
-      const inputHash = btoa(password);
-      if (inputHash !== account.passwordHash) {
-        setError("Mật khẩu không đúng. Vui lòng thử lại.");
-        setLoading(false);
-        return;
-      }
-
       await login(email, password);
 
       // Push welcome toast
       pushToast({
         title: 'Đăng nhập thành công!',
-        message: `Chào mừng bạn trở lại, ${account.name}. Hãy xem thị trường hôm nay!`,
+        message: `Chào mừng bạn trở lại, ${email}. Hãy xem thị trường hôm nay!`,
         type: 'success',
         icon: '👋',
       });
 
       router.push("/dashboard");
-    } catch {
-      setError("Đã xảy ra lỗi. Vui lòng thử lại.");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Đã xảy ra lỗi. Vui lòng thử lại.");
       setLoading(false);
     }
   };
@@ -81,12 +63,9 @@ export default function LoginPage() {
             <label className="text-sm font-medium mb-1.5 block">Mật khẩu</label>
             <input className="input" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required id="login-password" />
           </div>
-          <button type="submit" className="btn btn-primary w-full" disabled={loading} id="login-submit">
+          <button type="submit" className="btn btn-primary w-full" disabled={loading || authLoading} id="login-submit">
             {loading ? "Đang đăng nhập..." : "Đăng nhập"}
           </button>
-          <div className="text-center text-xs text-muted-foreground bg-muted/30 rounded-lg py-2">
-            Demo: <span className="font-mono">demo@finpilot.com</span> / <span className="font-mono">demo1234</span>
-          </div>
           <p className="text-center text-sm text-muted-foreground">
             Chưa có tài khoản? <a href="/register" className="text-primary hover:underline">Đăng ký</a>
           </p>

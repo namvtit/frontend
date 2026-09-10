@@ -3,7 +3,6 @@
 import { TrendingUp, TrendingDown, Pause, Lightbulb, X } from 'lucide-react';
 import { useDemo } from '@/lib/demo';
 import { getStockBySymbol } from '@/lib/market/mock-data';
-import { pushToast } from '@/components/ui/toast';
 import { useState } from 'react';
 
 const MOCK_AI_SUGGESTIONS = [
@@ -64,7 +63,7 @@ function getActionLabel(action: string) {
 }
 
 export function AISuggestionsSection() {
-  const { state, executeBuy, executeSell, getPrice } = useDemo();
+  const { state, executeBuy, executeSell, getPrice, trading, accountLoading } = useDemo();
   const [tradeModal, setTradeModal] = useState<{ symbol: string; action: 'buy' | 'sell' } | null>(null);
   const [quantity, setQuantity] = useState('10');
 
@@ -73,7 +72,7 @@ export function AISuggestionsSection() {
   const livePrice = tradeModal ? (getPrice(tradeModal.symbol) || stockInfo?.price || 0) : 0;
   const qty = parseInt(quantity) || 0;
   const estimatedValue = qty * livePrice;
-  const fee = estimatedValue * 0.0015; // 0.15% fee
+  const fee = 0;
   const totalCost = estimatedValue + (tradeModal?.action === 'buy' ? fee : -fee);
 
   const cashBalance = state.cashBalance;
@@ -82,48 +81,15 @@ export function AISuggestionsSection() {
 
   const isBuyDisabled = tradeModal?.action === 'buy' && totalCost > cashBalance;
   const isSellDisabled = tradeModal?.action === 'sell' && qty > currentHolding;
-  const isSubmitDisabled = qty <= 0 || (tradeModal?.action === 'buy' ? isBuyDisabled : isSellDisabled);
+  const isSubmitDisabled = trading || accountLoading || qty <= 0 || (tradeModal?.action === 'buy' ? isBuyDisabled : isSellDisabled);
 
-  const handleExecuteTrade = () => {
+  const handleExecuteTrade = async () => {
     if (!tradeModal || !stockInfo || isSubmitDisabled) return;
     const { symbol, action } = tradeModal;
     const actualName = stockInfo.name;
 
-    if (action === 'buy') {
-      const success = executeBuy(symbol, actualName, qty, livePrice);
-      if (success) {
-        pushToast({
-          title: `Mua thành công qua AI Insights`,
-          message: `Đã khớp lệnh mua ${qty} CP ${symbol} @ $${livePrice.toFixed(2)}.`,
-          type: 'success',
-          icon: '✅',
-        });
-      } else {
-        pushToast({
-          title: 'Lệnh không thành công',
-          message: 'Số dư tài khoản không khả dụng.',
-          type: 'alert',
-          icon: '❌',
-        });
-      }
-    } else {
-      const success = executeSell(symbol, actualName, qty, livePrice);
-      if (success) {
-        pushToast({
-          title: `Bán thành công qua AI Insights`,
-          message: `Đã khớp lệnh bán ${qty} CP ${symbol} @ $${livePrice.toFixed(2)}.`,
-          type: 'success',
-          icon: '💰',
-        });
-      } else {
-        pushToast({
-          title: 'Lệnh không thành công',
-          message: 'Số lượng cổ phiếu sở hữu không đủ.',
-          type: 'alert',
-          icon: '❌',
-        });
-      }
-    }
+    const success = await (action === 'buy' ? executeBuy : executeSell)(symbol, actualName, qty, livePrice);
+    if (!success) return;
     setTradeModal(null);
     setQuantity('10');
   };
@@ -286,7 +252,7 @@ export function AISuggestionsSection() {
                 <span className="font-bold text-foreground">${estimatedValue.toFixed(2)} USD</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground font-sans">Phí giao dịch (0.15%):</span>
+                <span className="text-muted-foreground font-sans">Phí giao dịch (0%):</span>
                 <span className="font-bold text-foreground">${fee.toFixed(2)} USD</span>
               </div>
               

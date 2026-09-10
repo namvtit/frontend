@@ -474,7 +474,7 @@ function chipValueToStatus(value: string): DecisionStatus {
 // ── Page component ──
 
 export default function AIAgentPage() {
-  const { toggleWatchlist, isInWatchlist, executeBuy, executeSell, executeWithdraw, updateCashBalance, resetDemo, getPrice, state, dispatch } = useDemo();
+  const { toggleWatchlist, isInWatchlist, executeBuy, executeSell, getPrice, state } = useDemo();
 
   const [messages, setMessages] = useState<AIMessage[]>([]);
   const [input, setInput] = useState("");
@@ -584,32 +584,8 @@ export default function AIAgentPage() {
   };
 
   const handleSelectOption = (value: string, label: string) => {
-    // Capital chip handlers (outside survey flow)
-    if (value === "reset_demo") {
-      resetDemo();
-      pushToast({ type: "info", title: "Đã reset demo", message: "Danh mục đã được khôi phục về trạng thái ban đầu." });
-      const resetMsg: AIMessage = {
-        id: `reset_${Date.now()}`,
-        role: "assistant",
-        content: "Đã reset toàn bộ danh mục demo về trạng thái ban đầu.",
-        timestamp: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, resetMsg]);
-      return;
-    }
-    if (value.startsWith("topup_")) {
-      const amount = parseInt(value.replace("topup_", ""), 10);
-      if (!isNaN(amount) && amount > 0) {
-        const newBalance = updateCashBalance(amount);
-        pushToast({ type: "success", title: "Đã nạp tiền", message: `Đã thêm $${amount.toLocaleString()} USD vào tài khoản.` });
-        const topupMsg: AIMessage = {
-          id: `topup_${Date.now()}`,
-          role: "assistant",
-          content: `Đã cộng thêm **$${amount.toLocaleString()} USD** vào tài khoản. Số dư hiện tại: **$${newBalance.toLocaleString()} USD**.`,
-          timestamp: new Date().toISOString(),
-        };
-        setMessages((prev) => [...prev, topupMsg]);
-      }
+    if (value === "reset_demo" || value.startsWith("topup_")) {
+      pushToast({ type: "info", title: "Chưa hỗ trợ", message: "Tài khoản hiện chỉ hỗ trợ mua và bán cổ phiếu." });
       return;
     }
 
@@ -922,35 +898,19 @@ export default function AIAgentPage() {
   };
 
   // ── Draft order confirm / cancel ──
-  const handleDraftConfirm = () => {
+  const handleDraftConfirm = async () => {
     if (!draftOrder) return;
     const { action, ticker, name, quantity, price } = draftOrder;
 
-    if (action === "Buy") {
-      const success = executeBuy(ticker, name, quantity, price);
-      if (!success) {
-        pushToast({ type: "alert", title: "Lệnh thất bại", message: "Số dư không đủ hoặc lệnh không hợp lệ." });
-      } else {
-        pushToast({ type: "success", title: `Mua ${ticker} thành công`, message: `${quantity} CP @ $${price.toFixed(2)}` });
-      }
-    } else if (action === "Sell") {
-      const success = executeSell(ticker, name, quantity, price);
-      if (!success) {
-        pushToast({ type: "alert", title: "Lệnh thất bại", message: "Không đủ cổ phiếu để bán." });
-      } else {
-        pushToast({ type: "success", title: `Bán ${ticker} thành công`, message: `${quantity} CP @ $${price.toFixed(2)}` });
-      }
+    if (action === "Buy" || action === "Sell") {
+      const success = await (action === "Buy" ? executeBuy : executeSell)(ticker, name, quantity, price);
+      if (!success) return;
     } else if (action === "Watch") {
       toggleWatchlist(ticker);
       pushToast({ type: "info", title: `Đã thêm ${ticker} vào watchlist`, message: `Theo dõi ${ticker}` });
     } else if (action === "Withdraw") {
-      const success = executeWithdraw(price);
-      if (!success) {
-        pushToast({ type: "alert", title: "Rút tiền thất bại", message: "Không thể rút số tiền này." });
-      } else {
-        pushToast({ type: "success", title: "Rút tiền thành công", message: `Đã rút $${price.toFixed(2)} USD.` });
-      }
-    } else {
+      pushToast({ type: "info", title: "Chưa hỗ trợ", message: "Tài khoản hiện chưa hỗ trợ rút tiền." });
+      return;
     }
 
     const aiMsg: AIMessage = {
@@ -1035,43 +995,29 @@ export default function AIAgentPage() {
   };
 
   // ── Buy / watchlist ──
-  const handleBuyStock = (symbol: string, qty = 10) => {
+  const handleBuyStock = async (symbol: string, qty = 10) => {
     const stock = getStockBySymbol(symbol);
     const price = getPrice(symbol);
     if (!stock || !price) {
       pushToast({ type: "alert", title: "Lệnh thất bại", message: "Không tìm thấy giá cho mã này." });
       return;
     }
-    const success = executeBuy(symbol, stock.name, qty, price);
-    if (!success) {
-      pushToast({ type: "alert", title: "Lệnh thất bại", message: "Số dư không đủ hoặc lệnh không hợp lệ." });
-      return;
-    }
+    const success = await executeBuy(symbol, stock.name, qty, price);
+    if (!success) return;
     setExecutedBuySymbols((prev) => prev.includes(symbol) ? prev : [...prev, symbol]);
-    pushToast({
-      type: "success",
-      title: "Mua thành công",
-      message: `Đã đặt lệnh mua ${qty} CP ${symbol} @ $${price.toFixed(2)}`,
-    });
+
   };
 
-  const handleSellStock = (symbol: string, qty: number) => {
+  const handleSellStock = async (symbol: string, qty: number) => {
     const stock = getStockBySymbol(symbol);
     const price = getPrice(symbol);
     if (!stock || !price) {
       pushToast({ type: "alert", title: "Lệnh thất bại", message: "Không tìm thấy giá cho mã này." });
       return;
     }
-    const success = executeSell(symbol, stock.name, qty, price);
-    if (!success) {
-      pushToast({ type: "alert", title: "Lệnh thất bại", message: "Không đủ cổ phiếu để bán." });
-      return;
-    }
-    pushToast({
-      type: "success",
-      title: "Bán thành công",
-      message: `Đã đặt lệnh bán ${qty} CP ${symbol} @ $${price.toFixed(2)}`,
-    });
+    const success = await executeSell(symbol, stock.name, qty, price);
+    if (!success) return;
+
   };
 
   // ── Chat: freely alongside active decision ──
@@ -1094,30 +1040,7 @@ export default function AIAgentPage() {
     // Capital change: "Tôi có 50 triệu"
     if (parsed && "intent" in parsed && parsed.intent === "capital_change") {
       setInput("");
-      const usdAmount = parsed.amount / 24_500;
-      const hasHoldings = Object.keys(state.holdings).length > 0;
-      if (hasHoldings) {
-        const aiMsg: AIMessage = {
-          id: `cap_confirm_${Date.now()}`,
-          role: "assistant",
-          content: `Bạn đang có danh mục đang hoạt động. Bạn muốn:\n- **Nạp thêm ${formatVnd(parsed.amount)} VND** (tăng số dư)\n- **Rút vốn** (tạo lệnh rút)\n- **Reset phiên mô phỏng** (bắt đầu lại từ đầu)`,
-          chips: [
-            { label: `Nạp thêm ${formatVnd(parsed.amount)} VND`, value: `topup_${parsed.amount}` },
-            { label: `Reset phiên mô phỏng`, value: "reset_demo" },
-          ],
-          timestamp: new Date().toISOString(),
-        };
-        setMessages((prev) => [...prev, aiMsg]);
-      } else {
-        dispatch({ type: "UPDATE_SETTINGS", cashBalance: usdAmount });
-        const aiMsg: AIMessage = {
-          id: `cap_set_${Date.now()}`,
-          role: "assistant",
-          content: `Đã thiết lập số dư: **$${usdAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })} USD** (~${formatVnd(parsed.amount)} VND). Số dư khả dụng: **${formatVnd(usdAmount * 24_500)} VND**. Bạn có thể bắt đầu đặt lệnh.`,
-          timestamp: new Date().toISOString(),
-        };
-        setMessages((prev) => [...prev, aiMsg]);
-      }
+      pushToast({ type: "info", title: "Chưa hỗ trợ", message: "Số dư tài khoản được quản lý trên máy chủ; hiện chỉ hỗ trợ mua và bán cổ phiếu." });
       return;
     }
 

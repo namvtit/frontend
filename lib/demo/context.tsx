@@ -4,6 +4,8 @@ import {
   createContext,
   useContext,
   useReducer,
+  useState,
+  useRef,
   useEffect,
   useCallback,
   useMemo,
@@ -11,14 +13,15 @@ import {
 } from 'react';
 import type {
   DemoState,
-  Holding,
-  TradeTransaction,
   DemoNotification,
   ChatMessage,
   AIProfile,
   MarketSnapshot,
 } from './types';
-import { FEE_RATE } from './types';
+import { useAuth } from '@/lib/auth/auth-context';
+import { apiRequest } from '@/lib/api/client';
+import { loadTradingAccount, type BackendTrade } from '@/lib/api/trading';
+import { pushToast } from '@/components/ui/toast';
 import { loadState, saveState, clearState } from './storage';
 import { createSeedState } from './seed';
 import { getStockBySymbol } from '@/lib/market/mock-data';
@@ -28,10 +31,7 @@ import { getStockBySymbol } from '@/lib/market/mock-data';
 type Action =
   | { type: 'HYDRATE'; state: DemoState }
   | { type: 'RESET' }
-  | { type: 'BUY'; symbol: string; name: string; quantity: number; price: number }
-  | { type: 'SELL'; symbol: string; name: string; quantity: number; price: number }
-  | { type: 'WITHDRAW'; quantity: number }
-  | { type: 'UPDATE_CASH_BALANCE'; amount: number }
+  | { type: 'ACCOUNT'; account: Pick<DemoState, 'cashBalance' | 'holdings' | 'transactions'> }
   | { type: 'ADD_WATCHLIST'; symbol: string }
   | { type: 'REMOVE_WATCHLIST'; symbol: string }
   | { type: 'PUSH_NOTIFICATION'; notification: Omit<DemoNotification, 'id' | 'read' | 'time'> }
@@ -61,134 +61,10 @@ function reducer(state: DemoState, action: Action): DemoState {
       return action.state;
 
     case 'RESET':
-      return createSeedState();
+      return { ...createSeedState(), cashBalance: state.cashBalance, holdings: state.holdings, transactions: state.transactions, feeRate: 0 };
 
-    case 'BUY': {
-      const { symbol, name, quantity, price } = action;
-      const gross = price * quantity;
-      const currentFeeRate = state.feeRate !== undefined ? state.feeRate : FEE_RATE;
-      const fee = gross * currentFeeRate;
-      const total = gross + fee;
-      if (total > state.cashBalance) return state; // insufficient cash
-
-      const existing = state.holdings[symbol];
-      const newQty = (existing?.quantity ?? 0) + quantity;
-      const newAvg = existing
-        ? (existing.avgPrice * existing.quantity + gross) / newQty
-        : price;
-
-      const tx: TradeTransaction = {
-        id: `tx_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-        type: 'buy',
-        symbol,
-        name,
-        quantity,
-        price,
-        gross,
-        fee,
-        total,
-        timestamp: new Date().toISOString(),
-        avgPrice: newAvg,
-      };
-
-      const notif: DemoNotification = {
-        id: `n_${Date.now()}`,
-        title: `Mua ${symbol} thành công`,
-        message: `Đã mua ${quantity} cổ phiếu ${symbol} @ $${price.toFixed(2)}. Giá vốn TB mới: $${newAvg.toFixed(2)}. Phí: $${fee.toFixed(2)}`,
-        type: 'success',
-        icon: '✅',
-        time: 'Vừa xong',
-        read: false,
-      };
-
-      return {
-        ...state,
-        cashBalance: state.cashBalance - total,
-        holdings: {
-          ...state.holdings,
-          [symbol]: { symbol, name, quantity: newQty, avgPrice: newAvg },
-        },
-        transactions: [tx, ...state.transactions],
-        notifications: [notif, ...state.notifications],
-      };
-    }
-
-    case 'SELL': {
-      const { symbol, name, quantity, price } = action;
-      const existing = state.holdings[symbol];
-      if (!existing || existing.quantity < quantity) return state; // insufficient holdings
-
-      const gross = price * quantity;
-      const currentFeeRate = state.feeRate !== undefined ? state.feeRate : FEE_RATE;
-      const fee = gross * currentFeeRate;
-      const net = gross - fee;
-      const newQty = existing.quantity - quantity;
-      const pnl = (price - existing.avgPrice) * quantity;
-
-      const tx: TradeTransaction = {
-        id: `tx_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-        type: 'sell',
-        symbol,
-        name,
-        quantity,
-        price,
-        gross,
-        fee,
-        total: net,
-        timestamp: new Date().toISOString(),
-        avgPrice: existing.avgPrice,
-        pnl,
-      };
-
-      const notif: DemoNotification = {
-        id: `n_${Date.now()}`,
-        title: `Bán ${symbol} thành công`,
-        message: `Đã bán ${quantity} cổ phiếu ${symbol} @ $${price.toFixed(2)}. Lợi nhuận chốt: ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)} (Giá vốn TB: $${existing.avgPrice.toFixed(2)}). Thu ròng: $${net.toFixed(2)}`,
-        type: 'success',
-        icon: '💰',
-        time: 'Vừa xong',
-        read: false,
-      };
-
-      const newHoldings = { ...state.holdings };
-      if (newQty <= 0) {
-        delete newHoldings[symbol];
-      } else {
-        newHoldings[symbol] = { ...existing, quantity: newQty };
-      }
-
-      return {
-        ...state,
-        cashBalance: state.cashBalance + net,
-        holdings: newHoldings,
-        transactions: [tx, ...state.transactions],
-        notifications: [notif, ...state.notifications],
-      };
-    }
-
-    case 'WITHDRAW': {
-      const { quantity } = action;
-      if (quantity <= 0 || quantity > state.cashBalance) return state;
-      const notif: DemoNotification = {
-        id: `n_${Date.now()}`,
-        title: 'Rút tiền thành công',
-        message: `Đã rút $${quantity.toFixed(2)} USD. Số dư còn lại: $${(state.cashBalance - quantity).toFixed(2)}.`,
-        type: 'info',
-        icon: '💸',
-        time: 'Vừa xong',
-        read: false,
-      };
-      return {
-        ...state,
-        cashBalance: state.cashBalance - quantity,
-        notifications: [notif, ...state.notifications],
-      };
-    }
-
-    case 'UPDATE_CASH_BALANCE': {
-      const newBalance = Math.max(0, state.cashBalance + action.amount);
-      return { ...state, cashBalance: newBalance };
-    }
+    case 'ACCOUNT':
+      return { ...state, ...action.account, feeRate: 0 };
 
     case 'ADD_WATCHLIST': {
       if (state.watchlist.includes(action.symbol)) return state;
@@ -268,13 +144,10 @@ function reducer(state: DemoState, action: Action): DemoState {
 
     case 'UPDATE_SETTINGS': {
       const newState = { ...state };
-      if (action.cashBalance !== undefined) {
-        newState.cashBalance = action.cashBalance;
-      }
       if (action.aiProfile !== undefined) {
         newState.aiProfile = { ...state.aiProfile, ...action.aiProfile };
       }
-      if (action.feeRate !== undefined) newState.feeRate = action.feeRate;
+
       if (action.maxDrawdownThreshold !== undefined) newState.maxDrawdownThreshold = action.maxDrawdownThreshold;
       if (action.maxPositionSizeLimit !== undefined) newState.maxPositionSizeLimit = action.maxPositionSizeLimit;
       if (action.autoRebalance !== undefined) newState.autoRebalance = action.autoRebalance;
@@ -364,10 +237,14 @@ function computePortfolio(state: DemoState): PortfolioSummary {
 interface DemoContextType {
   state: DemoState;
   portfolio: PortfolioSummary;
+  accountLoading: boolean;
+  accountError: string;
+  trading: boolean;
+  refreshAccount: () => Promise<void>;
   dispatch: React.ActionDispatch<[action: Action]>;
   // Convenience methods
-  executeBuy: (symbol: string, name: string, quantity: number, price: number) => boolean;
-  executeSell: (symbol: string, name: string, quantity: number, price: number) => boolean;
+  executeBuy: (symbol: string, name: string, quantity: number, price: number) => Promise<boolean>;
+  executeSell: (symbol: string, name: string, quantity: number, price: number) => Promise<boolean>;
   executeWithdraw: (quantity: number) => boolean;
   updateCashBalance: (amount: number) => number;
   addToWatchlist: (symbol: string) => void;
@@ -384,7 +261,60 @@ interface DemoContextType {
 const DemoContext = createContext<DemoContextType | null>(null);
 
 export function DemoProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, createSeedState());
+  const { user, loading: authLoading } = useAuth();
+  const [storedState, dispatch] = useReducer(reducer, { ...createSeedState(), cashBalance: 0, notifications: [], feeRate: 0 });
+  const [accountOwner, setAccountOwner] = useState<string | null>(null);
+  const [accountLoading, setAccountLoading] = useState(false);
+  const [accountError, setAccountError] = useState('');
+  const [trading, setTrading] = useState(false);
+  const tradePending = useRef(false);
+  const currentUser = useRef(user?.id);
+  useEffect(() => { currentUser.current = user?.id; }, [user?.id]);
+  const state = useMemo(() => user && accountOwner === user.id ? storedState :
+    { ...storedState, cashBalance: 0, holdings: {}, transactions: [] }, [storedState, user, accountOwner]);
+
+  const refreshAccount = useCallback(async () => {
+    if (!user) {
+      setAccountOwner(null);
+      setAccountError('');
+      setAccountLoading(false);
+      return;
+    }
+    const userId = user.id;
+    setAccountLoading(true);
+    setAccountError('');
+    try {
+      const account = await loadTradingAccount();
+      if (currentUser.current !== userId) return;
+      dispatch({ type: 'ACCOUNT', account });
+      setAccountOwner(userId);
+    } catch (error) {
+      if (currentUser.current === userId) {
+        setAccountOwner(null);
+        setAccountError(error instanceof Error ? error.message : 'Unable to load portfolio.');
+      }
+    } finally {
+      if (currentUser.current === userId) setAccountLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    let active = true;
+    const request = user ? loadTradingAccount() : Promise.resolve(null);
+    request.then((account) => {
+      if (!active) return;
+      if (account) dispatch({ type: 'ACCOUNT', account });
+      setAccountOwner(user?.id ?? null);
+      setAccountError('');
+      setAccountLoading(false);
+    }).catch((error) => {
+      if (!active) return;
+      setAccountOwner(null);
+      setAccountError(error instanceof Error ? error.message : 'Unable to load portfolio.');
+      setAccountLoading(false);
+    });
+    return () => { active = false; };
+  }, [user]);
   const fetchLivePrices = useCallback(async () => {
     try {
       const symbols = [
@@ -458,45 +388,36 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     [state.marketCache]
   );
 
-  const executeBuy = useCallback(
-    (symbol: string, name: string, quantity: number, price: number): boolean => {
-      const gross = price * quantity;
-      const fee = gross * FEE_RATE;
-      const total = gross + fee;
-      if (total > state.cashBalance) return false;
-      dispatch({ type: 'BUY', symbol, name, quantity, price });
+  const executeTrade = useCallback(async (side: 'BUY' | 'SELL', symbol: string, quantity: number): Promise<boolean> => {
+    if (tradePending.current) return false;
+    if (!user || authLoading || accountLoading || accountOwner !== user.id) {
+      pushToast({ title: 'Không thể đặt lệnh', message: user ? 'Vui lòng tải lại danh mục trước khi giao dịch.' : 'Vui lòng đăng nhập để giao dịch.', type: 'alert' });
+      return false;
+    }
+    tradePending.current = true;
+    setTrading(true);
+    try {
+      const { trade } = await apiRequest<{ trade: BackendTrade }>('/api/trades', { side, symbol, quantity });
+      if (currentUser.current !== user.id) return false;
+      pushToast({ title: `${side === 'BUY' ? 'Mua' : 'Bán'} ${symbol} thành công`,
+        message: `${trade.quantity} CP @ $${Number(trade.price).toFixed(2)}`, type: 'success' });
+      await refreshAccount();
       return true;
-    },
-    [state.cashBalance]
-  );
+    } catch (error) {
+      pushToast({ title: 'Lệnh thất bại', message: error instanceof Error ? error.message : 'Please try again.', type: 'alert' });
+      return false;
+    } finally {
+      tradePending.current = false;
+      setTrading(false);
+    }
+  }, [user, authLoading, accountLoading, accountOwner, refreshAccount]);
 
-  const executeSell = useCallback(
-    (symbol: string, name: string, quantity: number, price: number): boolean => {
-      const holding = state.holdings[symbol];
-      if (!holding || holding.quantity < quantity) return false;
-      dispatch({ type: 'SELL', symbol, name, quantity, price });
-      return true;
-    },
-    [state.holdings]
-  );
+  const executeBuy = useCallback((symbol: string, _name: string, quantity: number) => executeTrade('BUY', symbol, quantity), [executeTrade]);
+  const executeSell = useCallback((symbol: string, _name: string, quantity: number) => executeTrade('SELL', symbol, quantity), [executeTrade]);
 
-  const executeWithdraw = useCallback(
-    (quantity: number): boolean => {
-      if (quantity <= 0 || quantity > state.cashBalance) return false;
-      dispatch({ type: 'WITHDRAW', quantity });
-      return true;
-    },
-    [state.cashBalance]
-  );
-
-  const updateCashBalance = useCallback(
-    (amount: number): number => {
-      const newBalance = Math.max(0, state.cashBalance + amount);
-      dispatch({ type: 'UPDATE_CASH_BALANCE', amount });
-      return newBalance;
-    },
-    [state.cashBalance]
-  );
+  // There are no backend endpoints for deposits, withdrawals or account resets.
+  const executeWithdraw = useCallback(() => false, []);
+  const updateCashBalance = useCallback(() => state.cashBalance, [state.cashBalance]);
 
   const addToWatchlist = useCallback(
     (symbol: string) => dispatch({ type: 'ADD_WATCHLIST', symbol }),
@@ -545,6 +466,10 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     () => ({
       state,
       portfolio,
+      accountLoading: authLoading || accountLoading || (!!user && accountOwner !== user.id && !accountError),
+      accountError,
+      trading,
+      refreshAccount,
       dispatch,
       executeBuy,
       executeSell,
@@ -560,7 +485,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       resetDemo,
       getPrice,
     }),
-    [state, portfolio, dispatch, executeBuy, executeSell, executeWithdraw, updateCashBalance, addToWatchlist, removeFromWatchlist, toggleWatchlist, isInWatchlist, pushChat, clearChat, setAIProfile, resetDemo, getPrice]
+    [state, portfolio, authLoading, accountLoading, user, accountOwner, accountError, trading, refreshAccount, dispatch, executeBuy, executeSell, executeWithdraw, updateCashBalance, addToWatchlist, removeFromWatchlist, toggleWatchlist, isInWatchlist, pushChat, clearChat, setAIProfile, resetDemo, getPrice]
   );
 
   return <DemoContext.Provider value={ctx}>{children}</DemoContext.Provider>;

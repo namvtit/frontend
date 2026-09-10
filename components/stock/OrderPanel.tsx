@@ -3,16 +3,14 @@
 import { useState, useMemo } from 'react';
 import { Building2, ChevronDown, Check, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { useDemo } from '@/lib/demo';
-import { FEE_RATE } from '@/lib/demo/types';
-import { pushToast } from '@/components/ui/toast';
 
 /* ── Broker definitions ── */
 const BROKERS = [
-  { id: 'vps', name: 'VPS', desc: 'VPS Securities', fee: '0.15%', color: '#3b82f6' },
-  { id: 'ssi', name: 'SSI', desc: 'SSI Securities', fee: '0.15%', color: '#f97316' },
-  { id: 'vndirect', name: 'VNDS', desc: 'VNDirect', fee: '0.15%', color: '#22c55e' },
-  { id: 'tcbs', name: 'TCBS', desc: 'Techcom Securities', fee: '0.15%', color: '#ef4444' },
-  { id: 'mbs', name: 'MBS', desc: 'MB Securities', fee: '0.15%', color: '#a855f7' },
+  { id: 'vps', name: 'VPS', desc: 'VPS Securities', fee: '0%', color: '#3b82f6' },
+  { id: 'ssi', name: 'SSI', desc: 'SSI Securities', fee: '0%', color: '#f97316' },
+  { id: 'vndirect', name: 'VNDS', desc: 'VNDirect', fee: '0%', color: '#22c55e' },
+  { id: 'tcbs', name: 'TCBS', desc: 'Techcom Securities', fee: '0%', color: '#ef4444' },
+  { id: 'mbs', name: 'MBS', desc: 'MB Securities', fee: '0%', color: '#a855f7' },
 ] as const;
 
 type OrderType = 'limit' | 'market' | 'stop';
@@ -26,9 +24,9 @@ interface OrderPanelProps {
 }
 
 export default function OrderPanel({ symbol, stockName, currentPrice, currency = 'USD' }: OrderPanelProps) {
-  const { state, executeBuy, executeSell, getPrice } = useDemo();
+  const { state, executeBuy, executeSell, getPrice, trading, accountLoading, accountError } = useDemo();
   const [broker, setBroker] = useState<(typeof BROKERS)[number]['id']>(BROKERS[0].id);
-  const [orderType, setOrderType] = useState<OrderType>('limit');
+  const [orderType, setOrderType] = useState<OrderType>('market');
   const [side, setSide] = useState<OrderSide>('buy');
   const [quantity, setQuantity] = useState('100');
   const [price, setPrice] = useState(currentPrice.toFixed(2));
@@ -60,8 +58,7 @@ export default function OrderPanel({ symbol, stockName, currentPrice, currency =
     return qty * executionPrice;
   }, [qty, executionPrice]);
 
-  // Use FEE_RATE (0.15%) to match the core paper-trading state layer
-  const fee = estimatedValue * FEE_RATE;
+  const fee = 0;
   const totalCost = estimatedValue + (side === 'buy' ? fee : -fee);
 
   const quickQuantities = [10, 50, 100, 500, 1000];
@@ -103,7 +100,7 @@ export default function OrderPanel({ symbol, stockName, currentPrice, currency =
   // Validation
   const isBuyDisabled = side === 'buy' && totalCost > cashBalance;
   const isSellDisabled = side === 'sell' && qty > currentHolding;
-  const isSubmitDisabled = qty <= 0 || executionPrice <= 0 || (side === 'buy' ? isBuyDisabled : isSellDisabled);
+  const isSubmitDisabled = trading || accountLoading || !!accountError || qty <= 0 || executionPrice <= 0 || (side === 'buy' ? isBuyDisabled : isSellDisabled);
 
   const buttonText = useMemo(() => {
     if (qty <= 0) return 'Nhập khối lượng';
@@ -118,47 +115,10 @@ export default function OrderPanel({ symbol, stockName, currentPrice, currency =
     setShowConfirmModal(true);
   };
 
-  const handleConfirmOrder = () => {
-    const actualName = stockName || symbol;
-    if (side === 'buy') {
-      const success = executeBuy(symbol, actualName, qty, executionPrice);
-      if (success) {
-        const newAvg = currentHolding > 0
-          ? (currentAvgPrice * currentHolding + executionPrice * qty) / (currentHolding + qty)
-          : executionPrice;
-        pushToast({
-          title: `Đã mua ${qty} ${symbol}`,
-          message: `Khớp lệnh mua @ $${executionPrice.toFixed(2)}. Giá vốn TB mới: $${newAvg.toFixed(2)}. Phí GD: $${fee.toFixed(2)}`,
-          type: 'success',
-          icon: '✅',
-        });
-      } else {
-        pushToast({
-          title: 'Lệnh mua không thành công',
-          message: 'Số dư khả dụng trong tài khoản không đủ.',
-          type: 'alert',
-          icon: '❌',
-        });
-      }
-    } else {
-      const success = executeSell(symbol, actualName, qty, executionPrice);
-      if (success) {
-        pushToast({
-          title: `Đã bán ${qty} ${symbol}`,
-          message: `Khớp lệnh bán @ $${executionPrice.toFixed(2)}. Giá vốn TB: $${currentAvgPrice.toFixed(2)}. Thu ròng: $${(estimatedValue - fee).toFixed(2)}`,
-          type: 'success',
-          icon: '💰',
-        });
-      } else {
-        pushToast({
-          title: 'Lệnh bán không thành công',
-          message: 'Số lượng cổ phiếu sở hữu không đủ.',
-          type: 'alert',
-          icon: '❌',
-        });
-      }
-    }
-    setShowConfirmModal(false);
+  const handleConfirmOrder = async () => {
+    if (isSubmitDisabled) return;
+    const success = await (side === 'buy' ? executeBuy : executeSell)(symbol, stockName || symbol, qty, executionPrice);
+    if (success) setShowConfirmModal(false);
   };
 
   return (
@@ -215,6 +175,7 @@ export default function OrderPanel({ symbol, stockName, currentPrice, currency =
         </div>
 
         <div className="p-4 space-y-3.5">
+          {accountError && <p role="alert" className="text-xs text-red-500">{accountError}</p>}
           {/* ── Buy / Sell toggle ── */}
           <div className="grid grid-cols-2 gap-1 p-1 rounded-lg bg-muted/50">
             <button
@@ -246,6 +207,8 @@ export default function OrderPanel({ symbol, stockName, currentPrice, currency =
             {orderTypes.map((ot) => (
               <button
                 key={ot.key}
+                disabled={ot.key !== 'market'}
+                title={ot.key !== 'market' ? 'Chỉ hỗ trợ lệnh thị trường' : undefined}
                 onClick={() => setOrderType(ot.key)}
                 className={`flex-1 py-1.5 text-[11px] font-medium rounded-md transition-all ${
                   orderType === ot.key
@@ -483,7 +446,7 @@ export default function OrderPanel({ symbol, stockName, currentPrice, currency =
                 : 'bg-red-500 hover:bg-red-600 text-white'
             }`}
           >
-            {buttonText}
+            {trading ? 'Đang đặt lệnh...' : accountLoading ? 'Đang tải tài khoản...' : buttonText}
           </button>
 
           {/* ── Disclaimer removed ── */}
@@ -500,7 +463,7 @@ export default function OrderPanel({ symbol, stockName, currentPrice, currency =
             </h3>
             
             <p className="text-xs text-muted-foreground mb-4">
-              Vui lòng xem lại thông tin chi tiết lệnh trước khi tiếp tục.
+              Lệnh thị trường sẽ khớp theo giá xác minh tại thời điểm đặt lệnh. Giá dưới đây là ước tính.
             </p>
 
             <div className="space-y-3 mb-6 bg-muted/30 p-4 rounded-lg border border-border/50 font-mono text-sm">
@@ -519,7 +482,7 @@ export default function OrderPanel({ symbol, stockName, currentPrice, currency =
                 <span className="font-bold text-foreground">{qty} CP</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Giá khớp:</span>
+                <span className="text-muted-foreground">Giá ước tính:</span>
                 <span className="font-bold text-foreground">${executionPrice.toFixed(2)} USD</span>
               </div>
               {/* Average price info in confirmation */}
@@ -550,7 +513,7 @@ export default function OrderPanel({ symbol, stockName, currentPrice, currency =
                 <span className="font-bold text-foreground">${estimatedValue.toFixed(2)} USD</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Phí giao dịch (0.15%):</span>
+                <span className="text-muted-foreground">Phí giao dịch (0%):</span>
                 <span className="font-bold text-foreground">${fee.toFixed(2)} USD</span>
               </div>
               <div className="flex justify-between border-t border-border/50 pt-2 mt-2 text-base font-bold">
@@ -570,11 +533,12 @@ export default function OrderPanel({ symbol, stockName, currentPrice, currency =
               </button>
               <button
                 onClick={handleConfirmOrder}
+                disabled={isSubmitDisabled}
                 className={`flex-1 py-2.5 rounded-lg text-white text-sm font-semibold transition-all ${
                   side === 'buy' ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-red-500 hover:bg-red-600'
                 }`}
               >
-                Xác nhận đặt lệnh
+                {trading ? 'Đang đặt lệnh...' : 'Xác nhận đặt lệnh'}
               </button>
             </div>
           </div>

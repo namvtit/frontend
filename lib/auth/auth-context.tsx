@@ -2,6 +2,9 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 
+import { apiRequest } from '@/lib/api/client';
+import { pushToast } from '@/components/ui/toast';
+
 /* ── Types ── */
 export interface Notification {
   id: string;
@@ -14,6 +17,7 @@ export interface Notification {
 }
 
 export interface User {
+  id: string;
   name: string;
   email: string;
   avatar?: string;
@@ -23,7 +27,10 @@ interface AuthContextType {
   user: User | null;
   isLoggedIn: boolean;
   login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
+  register: (email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
+  loading: boolean;
+  error: string;
   notifications: Notification[];
   unreadCount: number;
   markAsRead: (id: string) => void;
@@ -86,60 +93,50 @@ const INITIAL_NOTIFICATIONS: Notification[] = [
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [mounted, setMounted] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  // Hydrate from localStorage on mount
-  useEffect(() => {
-    setMounted(true);
-    try {
-      const saved = localStorage.getItem('pisi_auth');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setUser(parsed.user);
-        setNotifications(parsed.notifications || INITIAL_NOTIFICATIONS);
-      }
-      // Seed demo account for first-time visitors
-      const accounts = localStorage.getItem('pisi_accounts');
-      if (!accounts) {
-        localStorage.setItem('pisi_accounts', JSON.stringify([
-          {
-            name: 'Demo User',
-            email: 'demo@finpilot.com',
-            passwordHash: btoa('demo1234'),
-            createdAt: new Date().toISOString(),
-            isDemo: true,
-          },
-        ]));
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  // Persist to localStorage
-  useEffect(() => {
-    if (!mounted) return;
-    if (user) {
-      localStorage.setItem('pisi_auth', JSON.stringify({ user, notifications }));
-    } else {
-      localStorage.removeItem('pisi_auth');
-    }
-  }, [user, notifications, mounted]);
-
-  const login = useCallback(async (email: string, _password: string) => {
-    // Mock delay
-    await new Promise((r) => setTimeout(r, 800));
-    const name = email.split('@')[0];
-    setUser({
-      name: name.charAt(0).toUpperCase() + name.slice(1),
-      email,
-    });
+  const acceptUser = useCallback((account: { id: string; email: string }) => {
+    setUser({ ...account, name: account.email.split('@')[0] });
     setNotifications(INITIAL_NOTIFICATIONS);
   }, []);
 
-  const logout = useCallback(() => {
-    setUser(null);
-    setNotifications([]);
+  useEffect(() => {
+    let active = true;
+    // Discard credentials saved by the old demo login.
+    try {
+      localStorage.removeItem('pisi_auth');
+      localStorage.removeItem('pisi_accounts');
+    } catch { /* Browser storage may be unavailable. */ }
+    fetch('/api/auth/me', { cache: 'no-store', credentials: 'same-origin' })
+      .then(async (response) => {
+        if (response.status === 401) return;
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Unable to load account.');
+        if (active) acceptUser(data.user);
+      })
+      .catch((error) => { if (active) setError(error.message); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [acceptUser]);
+
+  const authenticate = useCallback(async (action: 'login' | 'register', email: string, password: string) => {
+    const data = await apiRequest<{ user: { id: string; email: string } }>(`/api/auth/${action}`, { email, password });
+    acceptUser(data.user);
+    setError('');
+  }, [acceptUser]);
+  const login = useCallback((email: string, password: string) => authenticate('login', email, password), [authenticate]);
+  const register = useCallback((email: string, password: string) => authenticate('register', email, password), [authenticate]);
+
+  const logout = useCallback(async () => {
+    try {
+      await apiRequest('/api/auth/logout', {});
+      setUser(null);
+      setNotifications([]);
+      setError('');
+    } catch (error) {
+      pushToast({ title: 'Đăng xuất thất bại', message: error instanceof Error ? error.message : 'Please try again.', type: 'alert' });
+    }
   }, []);
 
   const markAsRead = useCallback((id: string) => {
@@ -164,7 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, isLoggedIn: !!user, login, logout, notifications, unreadCount, markAsRead, markAllAsRead, pushNotification }}
+      value={{ user, isLoggedIn: !!user, login, register, logout, loading, error, notifications, unreadCount, markAsRead, markAllAsRead, pushNotification }}
     >
       {children}
     </AuthContext.Provider>

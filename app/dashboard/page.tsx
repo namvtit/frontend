@@ -23,17 +23,19 @@ import {
 export default function DashboardPage() {
   const [showBalance, setShowBalance] = useState(true);
   const [activeTab, setActiveTab] = useState<'holdings' | 'orders' | 'watchlist'>('holdings');
-  const { user, logout, isLoggedIn } = useAuth();
-  const { state, getPrice } = useDemo();
+  const { user, logout, isLoggedIn, loading: authLoading, error: authError } = useAuth();
+  const { state, getPrice, accountLoading, accountError, refreshAccount } = useDemo();
   const router = useRouter();
 
   // Redirect if not logged in
   useEffect(() => {
-    if (typeof window !== 'undefined' && !isLoggedIn) {
+    if (!authLoading && !authError && !isLoggedIn) {
       router.replace('/login');
     }
-  }, [isLoggedIn, router]);
+  }, [isLoggedIn, authLoading, authError, router]);
 
+  if (authError || accountError) return <div role="alert" className="p-6 text-red-500">{authError || accountError} <button className="btn" onClick={() => authError ? window.location.reload() : void refreshAccount()}>Thử lại</button></div>;
+  if (authLoading || accountLoading) return <div className="p-6 text-muted-foreground">Đang tải tài khoản...</div>;
   if (!isLoggedIn) return null;
 
   // Compute portfolio values
@@ -61,7 +63,7 @@ export default function DashboardPage() {
     .filter(Boolean) as typeof STOCKS;
 
   // Sort transactions by most recent first
-  const sortedTransactions = [...state.transactions].reverse();
+  const sortedTransactions = state.transactions;
 
   return (
     <div className="min-h-screen bg-background fade-in">

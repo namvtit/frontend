@@ -4,20 +4,19 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/auth-context";
 
 export default function RegisterPage() {
-  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
-  const { login } = useAuth();
+  const { register, loading: authLoading } = useAuth();
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
-    if (password.length < 6) {
-      setError("Mật khẩu phải có ít nhất 6 ký tự.");
+    if (password.length < 8) {
+      setError("Mật khẩu phải có ít nhất 8 ký tự.");
       return;
     }
 
@@ -32,31 +31,10 @@ export default function RegisterPage() {
         return;
       }
 
-      // Check if account already exists in localStorage
-      const accounts = JSON.parse(localStorage.getItem("pisi_accounts") || "[]");
-      if (accounts.some((a: { email: string }) => a.email === email)) {
-        setError("Email này đã được đăng ký. Vui lòng đăng nhập.");
-        setLoading(false);
-        return;
-      }
-
-      // Create account in localStorage
-      const displayName = name.trim() || email.split("@")[0];
-      const newAccount = {
-        name: displayName.charAt(0).toUpperCase() + displayName.slice(1),
-        email,
-        // Password is stored for demo purposes only — do not use for real auth
-        passwordHash: btoa(password),
-        createdAt: new Date().toISOString(),
-      };
-      accounts.push(newAccount);
-      localStorage.setItem("pisi_accounts", JSON.stringify(accounts));
-
-      // Log the user in
-      await login(email, password);
+      await register(email, password);
       router.push("/dashboard");
-    } catch {
-      setError("Đã xảy ra lỗi. Vui lòng thử lại.");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Đã xảy ra lỗi. Vui lòng thử lại.");
       setLoading(false);
     }
   };
@@ -73,19 +51,16 @@ export default function RegisterPage() {
         </div>
 
         <form onSubmit={handleRegister} className="card space-y-4">
-          <div>
-            <label className="text-sm font-medium mb-1.5 block">Họ tên (tùy chọn)</label>
-            <input className="input" type="text" placeholder="Nguyễn Văn A" value={name} onChange={(e) => setName(e.target.value)} id="register-name" />
-          </div>
+          {error && <div role="alert" className="text-sm text-red-500 bg-red-500/10 p-3 rounded-xl">{error}</div>}
           <div>
             <label className="text-sm font-medium mb-1.5 block">Email</label>
             <input className="input" type="email" placeholder="email@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required id="register-email" />
           </div>
           <div>
             <label className="text-sm font-medium mb-1.5 block">Mật khẩu</label>
-            <input className="input" type="password" placeholder="Tối thiểu 6 ký tự" value={password} onChange={(e) => setPassword(e.target.value)} required id="register-password" />
+            <input className="input" type="password" placeholder="Tối thiểu 8 ký tự" value={password} onChange={(e) => setPassword(e.target.value)} required id="register-password" />
           </div>
-          <button type="submit" className="btn btn-primary w-full" disabled={loading} id="register-submit">
+          <button type="submit" className="btn btn-primary w-full" disabled={loading || authLoading} id="register-submit">
             {loading ? "Đang tạo tài khoản..." : "Đăng ký"}
           </button>
           <p className="text-center text-sm text-muted-foreground">
