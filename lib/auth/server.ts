@@ -1,7 +1,8 @@
 import "server-only";
 import { createHash, randomBytes, randomUUID, scrypt, timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { getDatabase } from "@/lib/db";
+import { getDatabase, transaction } from "@/lib/db";
+import type { PoolClient } from "pg";
 
 const COOKIE_NAME = "finpilot_session";
 const SESSION_SECONDS = 60 * 60 * 24 * 30;
@@ -12,7 +13,7 @@ const cookieOptions = {
   path: "/",
 };
 
-class AuthError extends Error {
+export class AuthError extends Error {
   constructor(message: string, readonly status: number) {
     super(message);
   }
@@ -92,10 +93,10 @@ function requestTokenHash(request: NextRequest) {
 
 type User = { id: string; email: string; created_at: Date };
 
-async function sessionResponse(user: User, status = 200) {
+async function sessionResponse(user: User, status = 200, database: Pick<PoolClient, "query"> = getDatabase()) {
   const token = randomBytes(32).toString("hex");
   const expires = new Date(Date.now() + SESSION_SECONDS * 1000);
-  await getDatabase().query(
+  await database.query(
     "INSERT INTO sessions (token_hash, user_id, expires_at) VALUES ($1, $2, $3)",
     [hashToken(token), user.id, expires],
   );
@@ -107,13 +108,16 @@ async function sessionResponse(user: User, status = 200) {
 export async function register(request: NextRequest) {
   const { email, password } = await credentials(request);
   const passwordHash = await hashPassword(password);
-  const { rows } = await getDatabase().query<User>(
-    `INSERT INTO users (id, email, password_hash) VALUES ($1, $2, $3)
-     ON CONFLICT (email) DO NOTHING RETURNING id, email, created_at`,
-    [randomUUID(), email, passwordHash],
-  );
-  if (!rows[0]) throw new AuthError("An account with this email already exists.", 409);
-  return sessionResponse(rows[0], 201);
+  return transaction(async (client) => {
+    const { rows } = await client.query<User>(
+      `INSERT INTO users (id, email, password_hash) VALUES ($1, $2, $3)
+       ON CONFLICT (email) DO NOTHING RETURNING id, email, created_at`,
+      [randomUUID(), email, passwordHash],
+    );
+    if (!rows[0]) throw new AuthError("An account with this email already exists.", 409);
+    await client.query("INSERT INTO portfolios (user_id) VALUES ($1)", [rows[0].id]);
+    return sessionResponse(rows[0], 201, client);
+  });
 }
 
 export async function login(request: NextRequest) {
@@ -136,7 +140,7 @@ export async function logout(request: NextRequest) {
   return response;
 }
 
-export async function me(request: NextRequest) {
+export async function requireUser(request: NextRequest) {
   const tokenHash = requestTokenHash(request);
   if (!tokenHash) throw new AuthError("Not authenticated.", 401);
   const { rows } = await getDatabase().query<User>(
@@ -145,5 +149,9 @@ export async function me(request: NextRequest) {
      WHERE s.token_hash = $1 AND s.expires_at > NOW()`, [tokenHash],
   );
   if (!rows[0]) throw new AuthError("Not authenticated.", 401);
-  return json({ user: rows[0] });
+  return rows[0];
+}
+
+export async function me(request: NextRequest) {
+  return json({ user: await requireUser(request) });
 }

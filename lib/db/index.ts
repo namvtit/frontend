@@ -1,5 +1,5 @@
 import "server-only";
-import { Pool } from "pg";
+import { Pool, type PoolClient } from "pg";
 import { databaseConfig } from "./config.mjs";
 
 const globalForDb = globalThis as typeof globalThis & { databasePool?: Pool };
@@ -12,4 +12,19 @@ export function getDatabase(): Pool {
     globalForDb.databasePool = pool;
   }
   return globalForDb.databasePool;
+}
+
+export async function transaction<T>(work: (client: PoolClient) => Promise<T>): Promise<T> {
+  const client = await getDatabase().connect();
+  try {
+    await client.query("BEGIN");
+    const result = await work(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }

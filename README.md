@@ -175,7 +175,22 @@ Next.js and the migration script load `.env` using Next.js environment conventio
 
 ### SQL migrations
 
-`npm run db:migrate` bootstraps only the `schema_migrations` tracking table. There are deliberately no business tables or SQL migrations yet. Add future migrations as immutable, zero-padded files such as `migrations/0001_description.sql`. The runner applies pending files in filename order, tracks each successful filename, and wraps each file plus its tracking entry in a transaction. An advisory lock serializes concurrent runners. Do not include transaction control or statements that cannot run in a transaction. Correct an applied migration with a new file; there is no automatic rollback command.
+`npm run db:migrate` applies `001_auth.sql` and `002_paper_trading.sql` and tracks them in `schema_migrations`. Add future migrations as immutable, zero-padded files such as `migrations/003_description.sql`. The runner applies pending files in filename order, tracks each successful filename, and wraps each file plus its tracking entry in a transaction. An advisory lock serializes concurrent runners. Do not include transaction control or statements that cannot run in a transaction. Correct an applied migration with a new file; there is no automatic rollback command.
+
+### Paper-trading backend
+
+The backend uses the existing `finpilot_session` cookie. Registration creates the user, session, and one portfolio atomically with 100000 USD cash; the migration also creates portfolios for existing users. The trading UI still runs its existing client demo.
+
+- `GET /api/portfolio` returns `{ portfolio: { user_id, cash, currency, created_at, positions } }`. Positions contain `symbol`, `quantity`, and `average_cost`.
+- `GET /api/trades` returns `{ trades: [...] }`, newest first.
+- `POST /api/trades` accepts `{ "symbol": "AAPL", "side": "BUY", "quantity": 1 }` and returns `{ trade: { id, symbol, side, quantity, price, total, executed_at } }` with status 201. SELL uses the same shape.
+
+Decimal values in responses are strings to preserve PostgreSQL numeric precision. Quantities support up to six decimal places, with a maximum of 1000000000 per order. Symbols are normalized to uppercase and Yahoo share-class notation (`BRK.B` → `BRK-B`). Each execution fetches one uncached Yahoo quote, verifies the symbol, positive price, USD currency, and stock/ETF instrument type, and uses the latest regular-market price available (including the last price when markets are closed). There is no mock execution fallback.
+
+Cash, weighted average cost, positions, and trade history update in one transaction with a per-portfolio row lock. Fully sold positions are removed. Errors return `{ error }`: 400 for invalid input, 401 for missing/expired sessions, 409 for insufficient cash/shares, and 503 for unavailable quotes or database failures.
+
+Run `node scripts/test-paper-trading.mjs` with the usual database environment variables and a local role allowed to create databases. It creates and removes an isolated test database, uses controlled quote responses, and checks migrations, registration rollback, ownership, execution, failed writes, and concurrent trades.
+
 
 Migrations run automatically on container startup, or manually with `docker compose exec web node scripts/migrate.mjs`. Use `docker compose down` to stop while retaining data. `docker compose down -v` deletes the database volume. Changing initialization credentials in `.env` does not change credentials in an existing volume.
 
