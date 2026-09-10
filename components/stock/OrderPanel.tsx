@@ -487,7 +487,7 @@ export default function OrderPanel({ symbol, stockName, currentPrice, currency =
       {/* Confirmation Modal */}
       {showConfirmModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-2xl slide-up">
+          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-xl border border-border bg-card p-6 shadow-2xl slide-up">
             <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
               <span className={`w-2.5 h-2.5 rounded-full ${side === 'buy' ? 'bg-emerald-500 animate-pulse' : 'bg-red-500 animate-pulse'}`} />
               Xác nhận Giao dịch

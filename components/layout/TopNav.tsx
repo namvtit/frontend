@@ -272,7 +272,7 @@ export function TopNav() {
                   className="hidden px-4 py-2 rounded-lg text-sm font-medium text-primary border border-primary hover:bg-primary hover:text-primary-foreground transition-colors sm:inline-block"
                   id="login-btn"
                 >
-                  Sign In
+                  Đăng nhập
                 </Link>
               )}
 

@@ -112,16 +112,16 @@ export default function DashboardPage() {
       {/* Header */}
       <section className="border-b border-border bg-card/50">
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
             <div>
-              <h1 className="text-3xl font-bold text-foreground">Welcome back, {user?.name || 'Investor'}</h1>
-              <p className="text-muted-foreground">Manage your portfolio and track market movements</p>
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Welcome back, {user?.name || 'Investor'}</h1>
+              <p className="text-sm sm:text-base text-muted-foreground mt-1">Manage your portfolio and track market movements</p>
             </div>
-            <div className="flex gap-2">
-              <button className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-foreground hover:bg-secondary transition-colors">
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              <button className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 text-sm rounded-lg border border-border text-foreground hover:bg-secondary transition-colors">
                 <Settings className="h-4 w-4" /> Settings
               </button>
-              <button onClick={logout} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-foreground hover:bg-secondary transition-colors">
+              <button onClick={logout} className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 text-sm rounded-lg border border-border text-foreground hover:bg-secondary transition-colors">
                 <LogOut className="h-4 w-4" /> Logout
               </button>
             </div>
@@ -130,50 +130,53 @@ export default function DashboardPage() {
           {/* Portfolio Summary */}
           <div className="grid gap-4 sm:grid-cols-3">
             {/* Total Value */}
-            <div className="rounded-lg border border-border bg-background p-6">
-              <div className="flex items-start justify-between mb-4">
+            <div className="rounded-xl border border-border bg-card p-5 sm:p-6 shadow-xs">
+              <div className="flex items-start justify-between mb-3">
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Value</p>
+                  <p className="text-sm font-medium text-muted-foreground">Total Value</p>
                   <button
                     onClick={() => setShowBalance(!showBalance)}
-                    className="flex items-center gap-2 mt-2 text-primary hover:text-primary/80 transition-colors"
+                    className="flex items-center gap-2 mt-1.5 text-primary hover:text-primary/80 transition-colors"
+                    aria-label="Toggle balance visibility"
                   >
-                    <span className="text-2xl font-bold text-foreground">
+                    <span className="text-2xl sm:text-3xl font-bold font-mono text-foreground tracking-tight">
                       {showBalance
                         ? `$${totalAccountValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                         : '••••••'}
                     </span>
-                    {showBalance ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                    {showBalance ? <Eye className="h-4 w-4 text-muted-foreground" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
                   </button>
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground">Cash: {showBalance ? `$${cashBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '••••'}</p>
+              <p className="text-xs text-muted-foreground font-mono">Cash: {showBalance ? `$${cashBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '••••'}</p>
             </div>
 
             {/* Day Change */}
-            <div className="rounded-lg border border-border bg-background p-6">
-              <p className="text-sm text-muted-foreground mb-2">Total P&L</p>
-              <div className={`flex items-center gap-2 ${
-                isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
+            <div className="rounded-xl border border-border bg-card p-5 sm:p-6 shadow-xs">
+              <p className="text-sm font-medium text-muted-foreground mb-3">Total P&L</p>
+              <div className={`flex items-center gap-3 ${
+                isPositive ? 'text-emerald-500' : 'text-red-500'
               }`}>
-                {isPositive ? <TrendingUp className="h-6 w-6" /> : <TrendingDown className="h-6 w-6" />}
+                {isPositive ? <TrendingUp className="h-7 w-7 shrink-0" /> : <TrendingDown className="h-7 w-7 shrink-0" />}
                 <div>
-                  <p className="text-2xl font-bold">{isPositive ? '+' : '-'}${Math.abs(totalUnrealizedPnL).toFixed(2)}</p>
-                  <p className="text-sm">{isPositive ? '+' : ''}{dayChangePercent.toFixed(2)}%</p>
+                  <p className="text-2xl sm:text-3xl font-bold font-mono tracking-tight">{isPositive ? '+' : '-'}${Math.abs(totalUnrealizedPnL).toFixed(2)}</p>
+                  <p className="text-xs sm:text-sm font-mono mt-0.5">{isPositive ? '+' : ''}{dayChangePercent.toFixed(2)}%</p>
                 </div>
               </div>
             </div>
 
             {/* Quick Actions */}
-            <div className="rounded-lg border border-border bg-background p-6">
-              <p className="text-sm text-muted-foreground mb-4">Quick Actions</p>
-              <div className="flex gap-2">
-                <Link href="/markets" className="flex items-center gap-1 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
-                  <Plus className="h-4 w-4" /> Buy
-                </Link>
-                <Link href="/markets" className="flex items-center gap-1 px-3 py-2 rounded-lg border border-border text-foreground text-sm font-medium hover:bg-secondary transition-colors">
-                  <TrendingDown className="h-4 w-4" /> Sell
-                </Link>
+            <div className="rounded-xl border border-border bg-card p-5 sm:p-6 shadow-xs flex flex-col justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-3">Quick Actions</p>
+                <div className="flex gap-2.5">
+                  <Link href="/markets" className="flex-1 inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity">
+                    <Plus className="h-4 w-4" /> Buy
+                  </Link>
+                  <Link href="/markets" className="flex-1 inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-lg border border-border bg-secondary/50 text-foreground text-sm font-semibold hover:bg-secondary transition-colors">
+                    <TrendingDown className="h-4 w-4" /> Sell
+                  </Link>
+                </div>
               </div>
             </div>
           </div>
@@ -183,12 +186,12 @@ export default function DashboardPage() {
       {/* Holdings & Watchlist Tabs */}
       <section className="border-b border-border">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex gap-4 border-b border-border">
+          <div className="flex gap-2 sm:gap-4 border-b border-border overflow-x-auto">
             <button
               onClick={() => setActiveTab('holdings')}
-              className={`px-4 py-4 font-medium text-sm border-b-2 transition-colors ${
+              className={`whitespace-nowrap px-3 sm:px-4 py-3.5 font-medium text-xs sm:text-sm border-b-2 transition-colors ${
                 activeTab === 'holdings'
-                  ? 'border-primary text-primary'
+                  ? 'border-primary text-primary font-semibold'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
@@ -196,9 +199,9 @@ export default function DashboardPage() {
             </button>
             <button
               onClick={() => setActiveTab('orders')}
-              className={`px-4 py-4 font-medium text-sm border-b-2 transition-colors ${
+              className={`whitespace-nowrap px-3 sm:px-4 py-3.5 font-medium text-xs sm:text-sm border-b-2 transition-colors ${
                 activeTab === 'orders'
-                  ? 'border-primary text-primary'
+                  ? 'border-primary text-primary font-semibold'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
               id="orders-tab"
@@ -207,9 +210,9 @@ export default function DashboardPage() {
             </button>
             <button
               onClick={() => setActiveTab('watchlist')}
-              className={`px-4 py-4 font-medium text-sm border-b-2 transition-colors ${
+              className={`whitespace-nowrap px-3 sm:px-4 py-3.5 font-medium text-xs sm:text-sm border-b-2 transition-colors ${
                 activeTab === 'watchlist'
-                  ? 'border-primary text-primary'
+                  ? 'border-primary text-primary font-semibold'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
@@ -217,7 +220,7 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          <div className="py-8">
+          <div className="py-6 sm:py-8">
             {activeTab === 'holdings' && (
               <>
                 {enrichedHoldings.length === 0 ? (
@@ -230,20 +233,20 @@ export default function DashboardPage() {
                     {enrichedHoldings.map((h) => {
                       const isUp = h.unrealizedPnL >= 0;
                       return (
-                        <Link key={h.symbol} href={`/stocks/${h.symbol}`} className="block rounded-lg border border-border bg-card p-4 hover:border-primary/50 transition-colors">
+                        <Link key={h.symbol} href={`/stocks/${h.symbol}`} className="block rounded-xl border border-border bg-card p-4 hover:border-primary/50 transition-colors">
                           <div className="flex items-center justify-between">
                             <div>
                               <div className="flex items-center gap-2">
-                                <span className="font-semibold text-foreground">{h.symbol}</span>
-                                <span className="text-sm text-muted-foreground">{h.name}</span>
+                                <span className="font-bold text-foreground text-base">{h.symbol}</span>
+                                <span className="text-xs sm:text-sm text-muted-foreground">{h.name}</span>
                               </div>
-                              <div className="flex gap-4 mt-1 text-xs text-muted-foreground">
+                              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-muted-foreground font-mono">
                                 <span>{h.quantity} shares @ ${h.avgPrice.toFixed(2)}</span>
                                 <span>Value: ${h.marketValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                               </div>
                             </div>
-                            <div className="text-right">
-                              <div className={`text-sm font-semibold ${isUp ? 'text-emerald-500' : 'text-red-500'}`}>
+                            <div className="text-right font-mono">
+                              <div className={`text-sm sm:text-base font-bold ${isUp ? 'text-emerald-500' : 'text-red-500'}`}>
                                 {isUp ? '+' : ''}{h.unrealizedPnLPercent.toFixed(2)}%
                               </div>
                               <div className={`text-xs ${isUp ? 'text-emerald-500' : 'text-red-500'}`}>
@@ -267,9 +270,9 @@ export default function DashboardPage() {
                     <Link href="/markets" className="btn btn-primary">Bắt đầu giao dịch</Link>
                   </div>
                 ) : (
-                  <div className="space-y-2 overflow-x-auto">
-                    <div className="min-w-[600px]">
-                      <div className="grid grid-cols-6 gap-2 px-4 py-2 text-xs font-medium text-muted-foreground border-b border-border">
+                  <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-xs">
+                    <div className="min-w-[640px]">
+                      <div className="grid grid-cols-6 gap-2 px-4 py-3 text-xs font-semibold text-muted-foreground border-b border-border bg-muted/40">
                         <span>Date</span>
                         <span>Symbol</span>
                         <span>Type</span>
@@ -277,28 +280,30 @@ export default function DashboardPage() {
                         <span className="text-right">Price</span>
                         <span className="text-right">Total</span>
                       </div>
-                      {sortedTransactions.map((tx) => {
-                        const isBuy = tx.type === 'buy';
-                        return (
-                          <div key={tx.id} className="grid grid-cols-6 gap-2 px-4 py-3 text-sm items-center border-b border-border/50 hover:bg-muted/30 transition-colors">
-                            <span className="text-muted-foreground text-xs">
-                              {new Date(tx.timestamp).toLocaleString('vi-VN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                            <div>
-                              <span className="font-semibold text-foreground">{tx.symbol}</span>
-                              <span className="text-xs text-muted-foreground ml-1">{tx.name}</span>
+                      <div className="divide-y divide-border/40">
+                        {sortedTransactions.map((tx) => {
+                          const isBuy = tx.type === 'buy';
+                          return (
+                            <div key={tx.id} className="grid grid-cols-6 gap-2 px-4 py-3 text-sm items-center hover:bg-muted/20 transition-colors">
+                              <span className="text-muted-foreground text-xs font-mono">
+                                {new Date(tx.timestamp).toLocaleString('vi-VN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                              <div>
+                                <span className="font-semibold text-foreground">{tx.symbol}</span>
+                                <span className="text-xs text-muted-foreground ml-1.5 hidden sm:inline">{tx.name}</span>
+                              </div>
+                              <span className={`inline-flex items-center text-xs font-bold ${isBuy ? 'text-emerald-500' : 'text-red-500'}`}>
+                                {isBuy ? 'BUY' : 'SELL'}
+                              </span>
+                              <span className="text-right text-muted-foreground font-mono">{tx.quantity}</span>
+                              <span className="text-right text-muted-foreground font-mono">${tx.price.toFixed(2)}</span>
+                              <span className={`text-right font-mono font-semibold ${isBuy ? 'text-red-500' : 'text-emerald-500'}`}>
+                                {isBuy ? '-' : '+'}${tx.total.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                              </span>
                             </div>
-                            <span className={`text-xs font-medium ${isBuy ? 'text-emerald-500' : 'text-red-500'}`}>
-                              {isBuy ? 'BUY' : 'SELL'}
-                            </span>
-                            <span className="text-right text-muted-foreground">{tx.quantity}</span>
-                            <span className="text-right text-muted-foreground">${tx.price.toFixed(2)}</span>
-                            <span className={`text-right font-medium ${isBuy ? 'text-red-500' : 'text-emerald-500'}`}>
-                              {isBuy ? '-' : '+'}${tx.total.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                            </span>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 )}
