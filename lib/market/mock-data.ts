@@ -11,7 +11,7 @@ export interface StockQuote {
 export interface NewsItem {
   id: string; title: string; summary: string; source: string; category: string;
   publishedAt: string; symbols: string[]; sentiment: "bullish" | "bearish" | "neutral";
-  imageUrl?: string; content?: string; url?: string; originalUrl?: string;
+  detailId?: string; imageUrl?: string; content?: string; url?: string; originalUrl?: string;
 }
 
 export interface MarketIndex {

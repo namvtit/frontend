@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import type { NewsItem } from "@/lib/market/mock-data";
 import SentimentBadge from "./SentimentBadge";
 
@@ -7,7 +8,7 @@ export default function NewsCard({ news }: { news: NewsItem }) {
   const ago = getTimeAgo(date);
 
   return (
-    <a href={news.url ?? `/news/${news.id}`} target={news.url ? "_blank" : undefined} rel={news.url ? "noopener noreferrer" : undefined} className="card block hover:border-primary/50 transition-all group">
+    <Link href={`/news/${encodeURIComponent(news.detailId ?? news.id)}`} prefetch={false} className="card block hover:border-primary/50 transition-all group">
       <div className="flex items-center gap-2 mb-2">
         <span className="text-xs font-medium text-primary">{news.source}</span>
         <span className="text-xs text-muted-foreground">•</span>
@@ -23,7 +24,7 @@ export default function NewsCard({ news }: { news: NewsItem }) {
           ))}
         </div>
       )}
-    </a>
+    </Link>
   );
 }
 

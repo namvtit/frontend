@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { NewsItem } from "@/lib/market/mock-data";
 import NewsCard from "@/components/news/NewsCard";
@@ -109,7 +110,7 @@ export default function NewsPage() {
                 <h3 className="font-semibold text-sm mb-3 text-foreground">Tin mới nhất</h3>
                 <div className="space-y-3">
                   {news.slice(0, 4).map((n) => (
-                    <a key={n.id} href={n.url} target="_blank" rel="noopener noreferrer" className="block text-sm text-foreground hover:text-primary transition-colors leading-snug">{n.title}</a>
+                    <Link key={n.id} href={`/news/${encodeURIComponent(n.detailId ?? n.id)}`} prefetch={false} className="block text-sm text-foreground hover:text-primary transition-colors leading-snug">{n.title}</Link>
                   ))}
                 </div>
               </div>
