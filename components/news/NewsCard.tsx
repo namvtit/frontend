@@ -1,5 +1,5 @@
 "use client";
-import { NewsItem } from "@/lib/market/mock-data";
+import type { NewsItem } from "@/lib/market/mock-data";
 import SentimentBadge from "./SentimentBadge";
 
 export default function NewsCard({ news }: { news: NewsItem }) {
@@ -7,11 +7,11 @@ export default function NewsCard({ news }: { news: NewsItem }) {
   const ago = getTimeAgo(date);
 
   return (
-    <a href={`/news/${news.id}`} className="card block hover:border-primary/50 transition-all group">
+    <a href={news.url ?? `/news/${news.id}`} target={news.url ? "_blank" : undefined} rel={news.url ? "noopener noreferrer" : undefined} className="card block hover:border-primary/50 transition-all group">
       <div className="flex items-center gap-2 mb-2">
         <span className="text-xs font-medium text-primary">{news.source}</span>
         <span className="text-xs text-muted-foreground">•</span>
-        <span className="text-xs text-muted-foreground">{ago}</span>
+        <time dateTime={news.publishedAt} title={date.toLocaleString("vi-VN")} className="text-xs text-muted-foreground">{ago}</time>
         <div className="ml-auto"><SentimentBadge sentiment={news.sentiment} /></div>
       </div>
       <h3 className="font-semibold text-sm leading-snug mb-2 group-hover:text-primary transition-colors">{news.title}</h3>
@@ -28,7 +28,7 @@ export default function NewsCard({ news }: { news: NewsItem }) {
 }
 
 function getTimeAgo(date: Date): string {
-  const diff = (Date.now() - date.getTime()) / 1000;
+  const diff = Math.max(0, (Date.now() - date.getTime()) / 1000);
   if (diff < 3600) return `${Math.floor(diff / 60)} phút trước`;
   if (diff < 86400) return `${Math.floor(diff / 3600)} giờ trước`;
   return `${Math.floor(diff / 86400)} ngày trước`;
