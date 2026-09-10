@@ -34,8 +34,50 @@ export default function DashboardPage() {
     }
   }, [isLoggedIn, authLoading, authError, router]);
 
-  if (authError || accountError) return <div role="alert" className="p-6 text-red-500">{authError || accountError} <button className="btn" onClick={() => authError ? window.location.reload() : void refreshAccount()}>Thử lại</button></div>;
-  if (authLoading || accountLoading) return <div className="p-6 text-muted-foreground">Đang tải tài khoản...</div>;
+  if (authError || accountError) {
+    return (
+      <div className="min-h-screen bg-background fade-in p-6">
+        <div className="mx-auto max-w-7xl">
+          <div role="alert" className="p-6 rounded-xl border border-red-500/20 bg-red-500/10 text-red-500 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <p className="font-semibold text-base">Không thể tải thông tin danh mục</p>
+              <p className="text-sm mt-1 opacity-90">{authError || accountError}</p>
+            </div>
+            <button className="btn btn-primary self-start sm:self-auto" onClick={() => authError ? window.location.reload() : void refreshAccount()}>
+              Thử lại
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (authLoading || accountLoading) {
+    return (
+      <div className="min-h-screen bg-background fade-in">
+        <section className="border-b border-border bg-card/50">
+          <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-8">
+            <div className="flex items-center justify-between">
+              <div className="space-y-2">
+                <div className="skeleton h-8 w-64 rounded-lg" />
+                <div className="skeleton h-4 w-80 rounded-md" />
+              </div>
+              <div className="skeleton h-10 w-28 rounded-lg" />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="skeleton h-32 rounded-lg" />
+              <div className="skeleton h-32 rounded-lg" />
+              <div className="skeleton h-32 rounded-lg" />
+            </div>
+          </div>
+        </section>
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-4">
+          <div className="skeleton h-10 w-80 rounded-lg" />
+          <div className="skeleton h-48 rounded-lg" />
+        </div>
+      </div>
+    );
+  }
   if (!isLoggedIn) return null;
 
   // Compute portfolio values
@@ -116,7 +158,7 @@ export default function DashboardPage() {
               }`}>
                 {isPositive ? <TrendingUp className="h-6 w-6" /> : <TrendingDown className="h-6 w-6" />}
                 <div>
-                  <p className="text-2xl font-bold">{isPositive ? '+' : ''}${Math.abs(totalUnrealizedPnL).toFixed(2)}</p>
+                  <p className="text-2xl font-bold">{isPositive ? '+' : '-'}${Math.abs(totalUnrealizedPnL).toFixed(2)}</p>
                   <p className="text-sm">{isPositive ? '+' : ''}{dayChangePercent.toFixed(2)}%</p>
                 </div>
               </div>
@@ -225,37 +267,39 @@ export default function DashboardPage() {
                     <Link href="/markets" className="btn btn-primary">Bắt đầu giao dịch</Link>
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    <div className="grid grid-cols-6 gap-2 px-4 py-2 text-xs font-medium text-muted-foreground border-b border-border">
-                      <span>Date</span>
-                      <span>Symbol</span>
-                      <span>Type</span>
-                      <span className="text-right">Qty</span>
-                      <span className="text-right">Price</span>
-                      <span className="text-right">Total</span>
-                    </div>
-                    {sortedTransactions.map((tx) => {
-                      const isBuy = tx.type === 'buy';
-                      return (
-                        <div key={tx.id} className="grid grid-cols-6 gap-2 px-4 py-3 text-sm items-center border-b border-border/50 hover:bg-muted/30 transition-colors">
-                          <span className="text-muted-foreground text-xs">
-                            {new Date(tx.timestamp).toLocaleString('vi-VN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                          <div>
-                            <span className="font-semibold text-foreground">{tx.symbol}</span>
-                            <span className="text-xs text-muted-foreground ml-1">{tx.name}</span>
+                  <div className="space-y-2 overflow-x-auto">
+                    <div className="min-w-[600px]">
+                      <div className="grid grid-cols-6 gap-2 px-4 py-2 text-xs font-medium text-muted-foreground border-b border-border">
+                        <span>Date</span>
+                        <span>Symbol</span>
+                        <span>Type</span>
+                        <span className="text-right">Qty</span>
+                        <span className="text-right">Price</span>
+                        <span className="text-right">Total</span>
+                      </div>
+                      {sortedTransactions.map((tx) => {
+                        const isBuy = tx.type === 'buy';
+                        return (
+                          <div key={tx.id} className="grid grid-cols-6 gap-2 px-4 py-3 text-sm items-center border-b border-border/50 hover:bg-muted/30 transition-colors">
+                            <span className="text-muted-foreground text-xs">
+                              {new Date(tx.timestamp).toLocaleString('vi-VN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            <div>
+                              <span className="font-semibold text-foreground">{tx.symbol}</span>
+                              <span className="text-xs text-muted-foreground ml-1">{tx.name}</span>
+                            </div>
+                            <span className={`text-xs font-medium ${isBuy ? 'text-emerald-500' : 'text-red-500'}`}>
+                              {isBuy ? 'BUY' : 'SELL'}
+                            </span>
+                            <span className="text-right text-muted-foreground">{tx.quantity}</span>
+                            <span className="text-right text-muted-foreground">${tx.price.toFixed(2)}</span>
+                            <span className={`text-right font-medium ${isBuy ? 'text-red-500' : 'text-emerald-500'}`}>
+                              {isBuy ? '-' : '+'}${tx.total.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                            </span>
                           </div>
-                          <span className={`text-xs font-medium ${isBuy ? 'text-emerald-500' : 'text-red-500'}`}>
-                            {isBuy ? 'BUY' : 'SELL'}
-                          </span>
-                          <span className="text-right text-muted-foreground">{tx.quantity}</span>
-                          <span className="text-right text-muted-foreground">${tx.price.toFixed(2)}</span>
-                          <span className={`text-right font-medium ${isBuy ? 'text-red-500' : 'text-emerald-500'}`}>
-                            {isBuy ? '-' : '+'}${tx.total.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                          </span>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </>

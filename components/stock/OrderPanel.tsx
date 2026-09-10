@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Building2, ChevronDown, Check, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Building2, ChevronDown, Check, ArrowUpRight, ArrowDownRight, LogIn } from 'lucide-react';
+import { useAuth } from '@/lib/auth/auth-context';
 import { useDemo } from '@/lib/demo';
 
 /* ── Broker definitions ── */
@@ -24,7 +26,9 @@ interface OrderPanelProps {
 }
 
 export default function OrderPanel({ symbol, stockName, currentPrice, currency = 'USD' }: OrderPanelProps) {
-  const { state, executeBuy, executeSell, getPrice, trading, accountLoading, accountError } = useDemo();
+  const router = useRouter();
+  const { isLoggedIn } = useAuth();
+  const { state, executeBuy, executeSell, getPrice, trading, accountLoading, accountError, lastTradeError } = useDemo();
   const [broker, setBroker] = useState<(typeof BROKERS)[number]['id']>(BROKERS[0].id);
   const [orderType, setOrderType] = useState<OrderType>('market');
   const [side, setSide] = useState<OrderSide>('buy');
@@ -33,6 +37,7 @@ export default function OrderPanel({ symbol, stockName, currentPrice, currency =
   const [stopPrice, setStopPrice] = useState((currentPrice * 0.95).toFixed(2));
   const [showBrokerPicker, setShowBrokerPicker] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [orderError, setOrderError] = useState<string | null>(null);
 
   const selectedBroker = BROKERS.find((b) => b.id === broker)!;
 
@@ -100,25 +105,39 @@ export default function OrderPanel({ symbol, stockName, currentPrice, currency =
   // Validation
   const isBuyDisabled = side === 'buy' && totalCost > cashBalance;
   const isSellDisabled = side === 'sell' && qty > currentHolding;
-  const isSubmitDisabled = trading || accountLoading || !!accountError || qty <= 0 || executionPrice <= 0 || (side === 'buy' ? isBuyDisabled : isSellDisabled);
+  const isSubmitDisabled = !isLoggedIn
+    ? false
+    : trading || accountLoading || !!accountError || qty <= 0 || executionPrice <= 0 || (side === 'buy' ? isBuyDisabled : isSellDisabled);
 
   const buttonText = useMemo(() => {
+    if (!isLoggedIn) return 'Đăng nhập để giao dịch';
     if (qty <= 0) return 'Nhập khối lượng';
     if (executionPrice <= 0) return 'Nhập giá hợp lệ';
     if (side === 'buy' && isBuyDisabled) return 'Không đủ số dư tiền mặt';
     if (side === 'sell' && isSellDisabled) return 'Vượt quá số lượng sở hữu';
     return `${side === 'buy' ? 'MUA' : 'BÁN'} ${symbol}`;
-  }, [qty, executionPrice, side, symbol, isBuyDisabled, isSellDisabled]);
+  }, [isLoggedIn, qty, executionPrice, side, symbol, isBuyDisabled, isSellDisabled]);
 
   const handleSubmit = () => {
+    if (!isLoggedIn) {
+      router.push('/login');
+      return;
+    }
     if (isSubmitDisabled) return;
+    setOrderError(null);
     setShowConfirmModal(true);
   };
 
   const handleConfirmOrder = async () => {
     if (isSubmitDisabled) return;
+    setOrderError(null);
     const success = await (side === 'buy' ? executeBuy : executeSell)(symbol, stockName || symbol, qty, executionPrice);
-    if (success) setShowConfirmModal(false);
+    if (success) {
+      setOrderError(null);
+      setShowConfirmModal(false);
+    } else {
+      setOrderError(lastTradeError || 'Đặt lệnh không thành công. Vui lòng kiểm tra lại.');
+    }
   };
 
   return (
@@ -175,6 +194,18 @@ export default function OrderPanel({ symbol, stockName, currentPrice, currency =
         </div>
 
         <div className="p-4 space-y-3.5">
+          {!isLoggedIn && (
+            <div className="p-3 rounded-lg bg-primary/10 border border-primary/20 text-xs text-foreground flex items-center justify-between">
+              <span>Đăng nhập để giao dịch và quản lý danh mục.</span>
+              <button
+                type="button"
+                onClick={() => router.push('/login')}
+                className="inline-flex items-center gap-1 font-semibold text-primary hover:underline ml-2 shrink-0"
+              >
+                <LogIn className="h-3.5 w-3.5" /> Đăng nhập
+              </button>
+            </div>
+          )}
           {accountError && <p role="alert" className="text-xs text-red-500">{accountError}</p>}
           {/* ── Buy / Sell toggle ── */}
           <div className="grid grid-cols-2 gap-1 p-1 rounded-lg bg-muted/50">
@@ -465,6 +496,12 @@ export default function OrderPanel({ symbol, stockName, currentPrice, currency =
             <p className="text-xs text-muted-foreground mb-4">
               Lệnh thị trường sẽ khớp theo giá xác minh tại thời điểm đặt lệnh. Giá dưới đây là ước tính.
             </p>
+
+            {orderError && (
+              <div role="alert" className="p-3 mb-4 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-500">
+                {orderError}
+              </div>
+            )}
 
             <div className="space-y-3 mb-6 bg-muted/30 p-4 rounded-lg border border-border/50 font-mono text-sm">
               <div className="flex justify-between">

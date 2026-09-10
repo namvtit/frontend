@@ -4,6 +4,14 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/auth-context";
 import { pushToast } from "@/components/ui/toast";
 
+function translateLoginError(raw: string): string {
+  if (raw.includes('Invalid email or password')) return 'Email hoặc mật khẩu không chính xác.';
+  if (raw.includes('valid email')) return 'Vui lòng nhập đúng định dạng email.';
+  if (raw.includes('Password must be')) return 'Mật khẩu phải có từ 8 ký tự trở lên.';
+  if (raw.includes('unavailable')) return 'Dịch vụ xác thực tạm thời không khả dụng. Vui lòng thử lại sau.';
+  return raw || 'Đã xảy ra lỗi khi đăng nhập. Vui lòng thử lại.';
+}
+
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -25,19 +33,20 @@ export default function LoginPage() {
     setError("");
 
     try {
-      await login(email, password);
+      await login(email.trim(), password);
 
       // Push welcome toast
       pushToast({
         title: 'Đăng nhập thành công!',
-        message: `Chào mừng bạn trở lại, ${email}. Hãy xem thị trường hôm nay!`,
+        message: `Chào mừng bạn trở lại, ${email.trim()}. Hãy xem thị trường hôm nay!`,
         type: 'success',
         icon: '👋',
       });
 
       router.push("/dashboard");
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Đã xảy ra lỗi. Vui lòng thử lại.");
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : "";
+      setError(translateLoginError(raw));
       setLoading(false);
     }
   };

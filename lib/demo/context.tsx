@@ -240,6 +240,7 @@ interface DemoContextType {
   accountLoading: boolean;
   accountError: string;
   trading: boolean;
+  lastTradeError: string | null;
   refreshAccount: () => Promise<void>;
   dispatch: React.ActionDispatch<[action: Action]>;
   // Convenience methods
@@ -260,6 +261,16 @@ interface DemoContextType {
 
 const DemoContext = createContext<DemoContextType | null>(null);
 
+function translateTradeError(raw: string): string {
+  if (raw.includes('Insufficient cash')) return 'Số dư tiền mặt không đủ để thực hiện lệnh mua.';
+  if (raw.includes('Insufficient quantity')) return 'Số lượng cổ phiếu trong danh mục không đủ để bán.';
+  if (raw.includes('A verified USD stock quote is unavailable')) return 'Không thể lấy giá xác minh từ thị trường. Vui lòng thử lại sau.';
+  if (raw.includes('Not authenticated')) return 'Vui lòng đăng nhập để thực hiện giao dịch.';
+  if (raw.includes('Invalid symbol')) return 'Mã cổ phiếu không hợp lệ.';
+  if (raw.includes('Provide a symbol, BUY or SELL')) return 'Vui lòng nhập mã cổ phiếu và khối lượng hợp lệ.';
+  return raw || 'Giao dịch thất bại. Vui lòng thử lại.';
+}
+
 export function DemoProvider({ children }: { children: ReactNode }) {
   const { user, loading: authLoading } = useAuth();
   const [storedState, dispatch] = useReducer(reducer, { ...createSeedState(), cashBalance: 0, notifications: [], feeRate: 0 });
@@ -267,6 +278,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   const [accountLoading, setAccountLoading] = useState(false);
   const [accountError, setAccountError] = useState('');
   const [trading, setTrading] = useState(false);
+  const [lastTradeError, setLastTradeError] = useState<string | null>(null);
   const tradePending = useRef(false);
   const currentUser = useRef(user?.id);
   useEffect(() => { currentUser.current = user?.id; }, [user?.id]);
@@ -337,7 +349,13 @@ export function DemoProvider({ children }: { children: ReactNode }) {
         '^VIX': 'VIX',
       };
       
-      const snapshots = result.map((q: any) => {
+      type RawQuote = {
+        symbol: string;
+        regularMarketPrice: number;
+        regularMarketChange: number;
+        regularMarketChangePercent: number;
+      };
+      const snapshots = (result as RawQuote[]).map((q) => {
         const rawSymbol = q.symbol.toUpperCase();
         const mappedSymbol = symbolMap[rawSymbol] ?? rawSymbol;
         return {
@@ -390,8 +408,11 @@ export function DemoProvider({ children }: { children: ReactNode }) {
 
   const executeTrade = useCallback(async (side: 'BUY' | 'SELL', symbol: string, quantity: number): Promise<boolean> => {
     if (tradePending.current) return false;
+    setLastTradeError(null);
     if (!user || authLoading || accountLoading || accountOwner !== user.id) {
-      pushToast({ title: 'Không thể đặt lệnh', message: user ? 'Vui lòng tải lại danh mục trước khi giao dịch.' : 'Vui lòng đăng nhập để giao dịch.', type: 'alert' });
+      const errMsg = user ? 'Vui lòng tải lại danh mục trước khi giao dịch.' : 'Vui lòng đăng nhập để giao dịch.';
+      setLastTradeError(errMsg);
+      pushToast({ title: 'Không thể đặt lệnh', message: errMsg, type: 'alert' });
       return false;
     }
     tradePending.current = true;
@@ -399,12 +420,16 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     try {
       const { trade } = await apiRequest<{ trade: BackendTrade }>('/api/trades', { side, symbol, quantity });
       if (currentUser.current !== user.id) return false;
+      setLastTradeError(null);
       pushToast({ title: `${side === 'BUY' ? 'Mua' : 'Bán'} ${symbol} thành công`,
         message: `${trade.quantity} CP @ $${Number(trade.price).toFixed(2)}`, type: 'success' });
       await refreshAccount();
       return true;
     } catch (error) {
-      pushToast({ title: 'Lệnh thất bại', message: error instanceof Error ? error.message : 'Please try again.', type: 'alert' });
+      const raw = error instanceof Error ? error.message : 'Please try again.';
+      const friendly = translateTradeError(raw);
+      setLastTradeError(friendly);
+      pushToast({ title: 'Lệnh thất bại', message: friendly, type: 'alert' });
       return false;
     } finally {
       tradePending.current = false;
@@ -469,6 +494,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       accountLoading: authLoading || accountLoading || (!!user && accountOwner !== user.id && !accountError),
       accountError,
       trading,
+      lastTradeError,
       refreshAccount,
       dispatch,
       executeBuy,
@@ -485,7 +511,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       resetDemo,
       getPrice,
     }),
-    [state, portfolio, authLoading, accountLoading, user, accountOwner, accountError, trading, refreshAccount, dispatch, executeBuy, executeSell, executeWithdraw, updateCashBalance, addToWatchlist, removeFromWatchlist, toggleWatchlist, isInWatchlist, pushChat, clearChat, setAIProfile, resetDemo, getPrice]
+    [state, portfolio, authLoading, accountLoading, user, accountOwner, accountError, trading, lastTradeError, refreshAccount, dispatch, executeBuy, executeSell, executeWithdraw, updateCashBalance, addToWatchlist, removeFromWatchlist, toggleWatchlist, isInWatchlist, pushChat, clearChat, setAIProfile, resetDemo, getPrice]
   );
 
   return <DemoContext.Provider value={ctx}>{children}</DemoContext.Provider>;

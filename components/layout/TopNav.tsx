@@ -220,7 +220,7 @@ function UserMenu() {
 export function TopNav() {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, user, logout } = useAuth();
   const isActive = (path: string) => pathname === path;
 
   return (
@@ -303,7 +303,23 @@ export function TopNav() {
                   {item.name}
                 </Link>
               ))}
-              {!isLoggedIn && (
+              {isLoggedIn ? (
+                <div className="pt-2 mt-2 border-t border-border space-y-2">
+                  <div className="px-4 py-2">
+                    <p className="text-sm font-semibold text-foreground">{user?.name}</p>
+                    <p className="text-xs text-muted-foreground">{user?.email}</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      logout();
+                      setIsOpen(false);
+                    }}
+                    className="w-full text-left flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-red-500 hover:bg-red-500/10 transition-colors"
+                  >
+                    <LogOut className="h-4 w-4" /> Đăng xuất
+                  </button>
+                </div>
+              ) : (
                 <Link
                   href="/login"
                   className="block px-4 py-2 rounded-lg text-sm font-medium text-primary"

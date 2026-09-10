@@ -1,7 +1,16 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/auth-context";
+import { pushToast } from "@/components/ui/toast";
+
+function translateAuthError(raw: string): string {
+  if (raw.includes('already exists')) return 'Tài khoản với email này đã tồn tại. Vui lòng đăng nhập hoặc dùng email khác.';
+  if (raw.includes('valid email')) return 'Vui lòng nhập đúng định dạng email.';
+  if (raw.includes('Password must be')) return 'Mật khẩu phải có từ 8 ký tự trở lên.';
+  if (raw.includes('unavailable')) return 'Dịch vụ xác thực tạm thời không khả dụng. Vui lòng thử lại sau.';
+  return raw || 'Đã xảy ra lỗi. Vui lòng thử lại.';
+}
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
@@ -9,7 +18,14 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
-  const { register, loading: authLoading } = useAuth();
+  const { register, isLoggedIn, loading: authLoading } = useAuth();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (isLoggedIn) {
+      router.push("/dashboard");
+    }
+  }, [isLoggedIn, router]);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,16 +41,25 @@ export default function RegisterPage() {
     try {
       // Validate email format
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        setError("Email không hợp lệ.");
+      if (!emailRegex.test(email.trim())) {
+        setError("Vui lòng nhập đúng định dạng email.");
         setLoading(false);
         return;
       }
 
-      await register(email, password);
+      await register(email.trim(), password);
+
+      pushToast({
+        title: 'Đăng ký thành công!',
+        message: `Chào mừng bạn đến với FinPilot!`,
+        type: 'success',
+        icon: '🎉',
+      });
+
       router.push("/dashboard");
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Đã xảy ra lỗi. Vui lòng thử lại.");
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : "";
+      setError(translateAuthError(raw));
       setLoading(false);
     }
   };

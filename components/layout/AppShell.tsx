@@ -23,8 +23,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <>
       <TopNav />
-      <main>{children}</main>
-      <div className="fixed bottom-0 left-0 right-0">
+      <main className="pb-20 md:pb-12">{children}</main>
+      <div className="fixed bottom-0 left-0 right-0 z-40">
         <NewsTicker />
         <MobileNav />
       </div>
