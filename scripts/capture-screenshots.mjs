@@ -1,9 +1,13 @@
 import { chromium } from 'playwright';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const BASE_URL = 'http://localhost:3000';
-const OUT_DIR = '/home/nam/finpilot/frontend/screenshots';
+const OUT_DIR = path.resolve(__dirname, '../screenshots');
 
 if (!fs.existsSync(OUT_DIR)) {
   fs.mkdirSync(OUT_DIR, { recursive: true });
