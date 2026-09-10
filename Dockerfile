@@ -6,7 +6,10 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm install --ignore-scripts --prefer-offline
+RUN npm ci --ignore-scripts
+
+FROM deps AS production-deps
+RUN npm prune --omit=dev --ignore-scripts
 
 # ──────────────────────────────────────────────
 # Stage 2: Build the application
@@ -16,17 +19,6 @@ WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-
-# Build-time env vars (defaults, overridable via --build-arg)
-ARG NEXT_PUBLIC_SUPABASE_URL=""
-ARG NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=""
-ARG NEXT_PUBLIC_APP_URL=http://localhost:3000
-ARG NEXT_PUBLIC_TRADINGVIEW_ENABLED=true
-
-ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
-ENV NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
-ENV NEXT_PUBLIC_TRADINGVIEW_ENABLED=$NEXT_PUBLIC_TRADINGVIEW_ENABLED
 
 # Disable Next.js telemetry during build
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -53,6 +45,11 @@ RUN chown nextjs:nodejs .next
 # Copy standalone server + static assets from build
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# Include dependencies for the separately executed migration script.
+COPY --from=production-deps --chown=nextjs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/migrate.mjs ./scripts/migrate.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/lib/db/config.mjs ./lib/db/config.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/migrations ./migrations
 
 USER nextjs
 
@@ -61,4 +58,4 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-CMD ["node", "server.js"]
+CMD ["sh", "-c", "node scripts/migrate.mjs && exec node server.js"]

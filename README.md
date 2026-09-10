@@ -4,6 +4,8 @@ A Next.js 16 demo of a stock-market UI: live Yahoo Finance quotes (with mock fal
 
 > **Status:** Frontend-led demo with thin Next.js route handlers. Most business logic and state remain client-side.
 
+The self-hosted foundation uses Next.js for both frontend and backend plus PostgreSQL (see §5). The existing unused Supabase scaffold and historical references below are legacy; they are not part of this setup. UI, market data, and mock behavior are unchanged.
+
 ---
 
 ## 1. Tech Stack (verified)
@@ -149,35 +151,46 @@ npm run lint
 ## 5. Run with Docker
 
 ```bash
-# Build & run (compose passes NEXT_PUBLIC_* as build args)
+cd frontend # if starting from the workspace root
+cp .env.example .env
+# Edit .env, especially POSTGRES_PASSWORD, before deploying.
 docker compose up --build
-# → http://localhost:3000  (override with PORT in your shell env)
+# → http://localhost:3000
+curl -f http://localhost:3000/api/health
 ```
 
-Build args (all optional, defaults are safe):
+Compose runs exactly two services: `web` (the existing standalone Next.js app, as non-root `nextjs`) and `postgres` (PostgreSQL 17). PostgreSQL uses a named volume, with its host port bound only to localhost. Web waits for PostgreSQL readiness, runs migrations, and starts only if migrations succeed. Its healthcheck calls `/api/health`, which executes `SELECT 1` and returns uncached HTTP 200 on success or 503 on connection failure without exposing credentials or database errors.
 
-| Arg | Default | Purpose |
-|---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | empty | Build-time Supabase URL (currently unused by UI) |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | empty | Build-time Supabase key |
-| `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` | Used for client-side links |
-| `NEXT_PUBLIC_TRADINGVIEW_ENABLED` | `true` | Toggles the TradingView widget |
+For local Next.js development with PostgreSQL in Docker:
 
-Container is `node:22-alpine` multi-stage, `output: "standalone"`, runs as non-root `nextjs`, exposes `3000`, and includes a `wget` healthcheck against `/`.
+```bash
+cp .env.example .env # once; edit as needed
+npm ci
+docker compose up -d postgres
+npm run db:migrate
+npm run dev
+```
+
+Next.js and the migration script load `.env` using Next.js environment conventions; `.env.local` takes precedence for host commands. Compose reads `.env` and overrides the web container's database host/port to `postgres:5432`. No database credentials are needed at build time.
+
+### SQL migrations
+
+`npm run db:migrate` bootstraps only the `schema_migrations` tracking table. There are deliberately no business tables or SQL migrations yet. Add future migrations as immutable, zero-padded files such as `migrations/0001_description.sql`. The runner applies pending files in filename order, tracks each successful filename, and wraps each file plus its tracking entry in a transaction. An advisory lock serializes concurrent runners. Do not include transaction control or statements that cannot run in a transaction. Correct an applied migration with a new file; there is no automatic rollback command.
+
+Migrations run automatically on container startup, or manually with `docker compose exec web node scripts/migrate.mjs`. Use `docker compose down` to stop while retaining data. `docker compose down -v` deletes the database volume. Changing initialization credentials in `.env` does not change credentials in an existing volume.
 
 ---
 
 ## 6. Environment Variables (placeholders only)
 
-Copy `.env.example` → `.env.local` and fill as needed. Real values must never be committed.
+Copy `.env.example` → `.env` for Compose and local development. Real values must never be committed.
 
 | Variable | Required? | Purpose |
 |---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | optional | If set, `lib/supabase/client.ts` builds a Supabase client (not currently consumed by any page). |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (or `NEXT_PUBLIC_SUPABASE_ANON_KEY`) | optional | Same as above. |
-| `SUPABASE_SECRET_KEY` | optional | Reserved for future server-side use. |
-| `NEXT_PUBLIC_APP_URL` | optional | Base URL for client code; defaults to `http://localhost:3000`. |
-| `NEXT_PUBLIC_TRADINGVIEW_ENABLED` | optional | Flag for the TradingView embed (`true`/`false`). |
+| `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | required for DB | Shared database configuration for the app, migrations, and PostgreSQL initialization. |
+| `PGHOST` | required for host DB access | `127.0.0.1` locally; overridden to `postgres` inside Compose. |
+| `PGPORT` | optional | Local database port, defaults to `5432`; container uses `5432`. |
+| `PORT` | optional | Web host port, defaults to `3000`. |
 | `TOKENROUTER_API_KEY` | optional | When present, `/api/ai/chat` calls TokenRouter's `MiniMax-M3` via the OpenAI SDK; otherwise it returns the deterministic mock. |
 | `TOKENROUTER_BASE_URL` | optional | Override for the TokenRouter base URL. Defaults to `https://api.tokenrouter.com/v1`. |
 | `TOKENROUTER_MODEL` | optional | Model name passed to the chat completion call. Defaults to `MiniMax-M3`. |
