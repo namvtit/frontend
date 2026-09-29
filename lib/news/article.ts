@@ -32,7 +32,13 @@ export async function getArticle(id: string) {
   const news = mock ?? await findNews(id);
   if (!news) return undefined;
   const url = news.originalUrl || news.url;
-  const article = !mock && url ? await cachedArticle(url) : {
+  const article = mock && mock.content ? {
+    originalUrl: url ?? "",
+    resolved: true,
+    status: "extracted" as const,
+    contentHtml: mock.content.split("\n\n").map((p) => `<p>${p}</p>`).join(""),
+    excerpt: mock.summary,
+  } : !mock && url ? await cachedArticle(url) : {
     originalUrl: url ?? "", resolved: false, status: "fallback" as const, reason: "unavailable" as const,
   };
   return { ...news, originalUrl: article.originalUrl, article };

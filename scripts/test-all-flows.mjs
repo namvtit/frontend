@@ -127,11 +127,13 @@ async function run() {
   console.log('▶ [Flow 8] SELL 1 share of AAPL');
   await page.goto(`${BASE_URL}/stocks/AAPL`);
   await page.waitForSelector('button:has-text("BÁN")');
+  await page.waitForTimeout(1000);
 
   // Switch to SELL
   await page.click('button:has-text("BÁN")');
   await page.waitForTimeout(500);
-  await qtyInput.fill('1');
+  const sellQtyInput = page.locator('input[type="number"]').first();
+  await sellQtyInput.fill('1');
   await page.waitForTimeout(500);
 
   const sellButton = page.locator('button:has-text("BÁN AAPL")');

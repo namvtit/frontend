@@ -4,16 +4,18 @@ import { NEWS, INDICES } from '@/lib/market/mock-data';
 import Link from 'next/link';
 
 const BREAKING_NEWS = [
-  { label: 'BREAKING', text: 'NVIDIA vượt kỳ vọng doanh thu Q1, cổ phiếu tăng 6.6% trong phiên', sentiment: 'bullish' as const },
-  { label: 'NÓNG', text: 'Fed giữ nguyên lãi suất — tín hiệu cắt giảm Q3 đẩy S&P 500 lên đỉnh mới', sentiment: 'bullish' as const },
+  { label: 'BREAKING', text: 'NVIDIA lập kỷ lục vốn hóa $5.15T, siêu chip Blackwell GB200 cháy hàng tới hết 2027', sentiment: 'bullish' as const },
+  { label: 'MACRO', text: 'Fed giữ nguyên lãi suất 5.25% - 5.50% — chờ đợi thêm tín hiệu từ lạm phát', sentiment: 'neutral' as const },
   { label: 'CẢNH BÁO', text: 'Tesla triệu hồi 200,000 xe do lỗi Autopilot — NHTSA mở điều tra', sentiment: 'bearish' as const },
-  { label: 'BREAKING', text: 'Bitcoin phá đỉnh $100,000 lần đầu tiên trong lịch sử', sentiment: 'bullish' as const },
-  { label: 'NÓNG', text: 'Giá dầu lao dốc 3.2% sau báo cáo tồn kho bất ngờ tăng vọt', sentiment: 'bearish' as const },
-  { label: 'TÂM LÝ', text: 'Fear & Greed Index: 32 — Vùng Sợ hãi, nhà đầu tư thận trọng', sentiment: 'bearish' as const },
-  { label: 'AI INSIGHT', text: 'Dòng tiền lớn đổ vào nhóm AI/Chip — NVDA, AMD, AVGO dẫn đầu', sentiment: 'bullish' as const },
-  { label: 'MACRO', text: 'CPI Mỹ giảm còn 2.4% — lạm phát hạ nhiệt, kỳ vọng nới lỏng tăng', sentiment: 'bullish' as const },
-  { label: 'CẢNH BÁO', text: 'VIX giảm mạnh 5.23% — thị trường đang tự mãn?', sentiment: 'bearish' as const },
-  { label: 'TÂM LÝ', text: 'Khối ngoại mua ròng $420M tuần này — tâm lý tích cực trở lại', sentiment: 'bullish' as const },
+  { label: 'AI INSIGHT', text: 'Apple tăng tốc tích hợp Apple Intelligence sâu vào chip M-series và iOS', sentiment: 'bullish' as const },
+  { label: 'NÓNG', text: 'Giá dầu WTI lao dốc 3.2% sau báo cáo tồn kho bất ngờ tăng vọt', sentiment: 'bearish' as const },
+  { label: 'DOANH NGHIỆP', text: 'Berkshire Hathaway nắm giữ 180 tỷ USD tiền mặt, kiên nhẫn chờ cơ hội', sentiment: 'neutral' as const },
+  { label: 'BREAKING', text: 'Bitcoin phá đỉnh $100,000 lần đầu tiên trong lịch sử tài chính số', sentiment: 'bullish' as const },
+  { label: 'CẢNH BÁO', text: 'Meta đối mặt điều tra quy định mới về cạnh tranh tại Liên minh Châu Âu', sentiment: 'bearish' as const },
+  { label: 'VIỆC LÀM', text: 'Báo cáo việc làm Mỹ đạt 175k sát dự báo — củng cố kịch bản hạ cánh mềm', sentiment: 'neutral' as const },
+  { label: 'TÂM LÝ', text: 'Khối quỹ ETF toàn cầu mua ròng kỷ lục $8.5B vào nhóm cổ phiếu tăng trưởng', sentiment: 'bullish' as const },
+  { label: 'THANH TOÁN', text: 'Khối lượng giao dịch thẻ Visa tăng 8% — chi tiêu tiêu dùng toàn cầu ổn định', sentiment: 'neutral' as const },
+  { label: 'CẢNH BÁO', text: 'UnitedHealth chịu áp lực chi phí y tế gia tăng — kéo lùi nhóm bảo hiểm', sentiment: 'bearish' as const },
 ];
 
 // Triple the items for seamless infinite scroll

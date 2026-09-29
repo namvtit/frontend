@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { Menu, X, TrendingUp, Moon, Sun, Bell, LogOut, User, ChevronDown } from "lucide-react";
 import { useTheme } from "next-themes";
 import { TickerBanner } from "@/components/market/ticker-banner";
@@ -230,12 +231,19 @@ export function TopNav() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
             {/* Logo */}
-            <Link href="/" className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-accent">
-                <TrendingUp className="h-5 w-5 text-primary-foreground" />
+            <Link href="/" className="flex items-center gap-2.5 group">
+              <div className="relative flex items-center justify-center transition-transform duration-200 group-hover:scale-105">
+                <Image
+                  src="/logo-emblem.png"
+                  alt="FinPilot Logo"
+                  width={44}
+                  height={32}
+                  className="h-8 sm:h-9 w-auto object-contain drop-shadow-[0_2px_10px_rgba(59,130,246,0.3)]"
+                  priority
+                />
               </div>
-              <span className="hidden font-bold text-foreground sm:inline">
-                Fin<span className="text-primary">Pilot</span>
+              <span className="font-extrabold text-lg sm:text-xl tracking-tight text-foreground flex items-center">
+                Fin<span className="text-primary bg-gradient-to-r from-blue-500 to-indigo-500 bg-clip-text text-transparent">Pilot</span>
               </span>
             </Link>
 

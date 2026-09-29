@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { StockQuote } from "@/lib/market/mock-data";
+import { StockQuote, generateQuoteFromMetadata } from "@/lib/market/mock-data";
 import { SP500_METADATA } from "@/lib/market/sp500-metadata";
 import { useVisibleLiveQuotes } from "@/lib/market/use-visible-live-quotes";
 import { formatCurrency, formatLargeNumber } from "@/lib/utils";
@@ -19,9 +19,9 @@ interface MarketTableProps {
   changeFilter?: string;
   marketCapFilter?: string;
   exchangeFilter?: string;
+  isCustomList?: boolean;
 }
 
-const EMPTY_NUMBER = Number.NaN;
 const MAX_VISIBLE_STOCKS = 30;
 
 function normalizeText(value: string) {
@@ -62,8 +62,8 @@ function compareNumbers(a: number, b: number, direction: "asc" | "desc") {
   return direction === "asc" ? a - b : b - a;
 }
 
-function formatOptionalCurrency(value: number) {
-  return hasFiniteValue(value) ? formatCurrency(value) : "—";
+function formatOptionalCurrency(value: number, currency: string = "USD") {
+  return hasFiniteValue(value) ? formatCurrency(value, currency) : "—";
 }
 
 function formatOptionalLargeNumber(value: number) {
@@ -77,6 +77,7 @@ export default function MarketTable({
   changeFilter = "all",
   marketCapFilter = "all",
   exchangeFilter = "all",
+  isCustomList = false,
 }: MarketTableProps) {
   const { state } = useDemo();
   const [sortKey, setSortKey] = useState<SortKey>("marketCap");
@@ -91,37 +92,26 @@ export default function MarketTable({
   }, [search]);
 
   const universe = useMemo<MarketRow[]>(() => {
+    if (isCustomList) {
+      return stocks.map((stock, index) => ({
+        ...stock,
+        requestSymbol: stock.symbol.replace(/\./g, "-"),
+        marketCapRank: index + 1,
+      }));
+    }
+
     const seededBySymbol = new Map(stocks.map((stock) => [stock.symbol.toUpperCase(), stock]));
-    const metadataSymbols = new Set(SP500_METADATA.map((stock) => stock.symbol));
+    const metadataSymbols = new Set(SP500_METADATA.map((stock) => stock.symbol.toUpperCase()));
     const sp500Rows = SP500_METADATA.map((metadata) => {
-      const seeded = seededBySymbol.get(metadata.symbol);
+      const seeded = seededBySymbol.get(metadata.symbol.toUpperCase());
       if (seeded) {
         return { ...seeded, requestSymbol: metadata.requestSymbol, marketCapRank: metadata.marketCapRank };
       }
+      const generated = generateQuoteFromMetadata(metadata);
       return {
-        symbol: metadata.symbol,
+        ...generated,
         requestSymbol: metadata.requestSymbol,
-        name: metadata.name,
-        exchange: metadata.exchange,
-        sector: metadata.sector,
         marketCapRank: metadata.marketCapRank,
-        currency: "USD",
-        price: EMPTY_NUMBER,
-        change: EMPTY_NUMBER,
-        changePercent: EMPTY_NUMBER,
-        marketCap: EMPTY_NUMBER,
-        volume: EMPTY_NUMBER,
-        peRatio: EMPTY_NUMBER,
-        eps: EMPTY_NUMBER,
-        dividendYield: EMPTY_NUMBER,
-        beta: EMPTY_NUMBER,
-        high52w: EMPTY_NUMBER,
-        low52w: EMPTY_NUMBER,
-        sparkline: [],
-        day1: EMPTY_NUMBER,
-        week1: EMPTY_NUMBER,
-        month1: EMPTY_NUMBER,
-        ytd: EMPTY_NUMBER,
       };
     });
     const preservedSeedRows = stocks
@@ -132,38 +122,20 @@ export default function MarketTable({
         marketCapRank: SP500_METADATA.length + index + 1,
       }));
     return [...sp500Rows, ...preservedSeedRows];
-  }, [stocks]);
+  }, [stocks, isCustomList]);
 
   const sectors = useMemo(() => ["all", ...new Set(universe.map((stock) => stock.sector))], [universe]);
   const normalizedQuery = useMemo(() => normalizeText(debouncedSearch), [debouncedSearch]);
 
   const visibleCandidates = useMemo(() => {
-    const filtered = universe.filter((stock) => {
-      if (normalizedQuery && !Number.isFinite(searchRank(stock, normalizedQuery))) return false;
+    return universe.filter((stock) => {
+      if (normalizedQuery && searchRank(stock, normalizedQuery) === Number.POSITIVE_INFINITY) return false;
       if (sectorFilter !== "all" && stock.sector !== sectorFilter) return false;
-      if (exchangeFilter !== "all") {
-        const exchangeMatches = exchangeFilter === "AMEX"
-          ? stock.exchange === "AMEX" || stock.exchange === "NYSE American"
-          : stock.exchange === exchangeFilter;
-        if (!exchangeMatches) return false;
-      }
-      return matchesMarketCapRank(stock.marketCapRank, marketCapFilter);
-    });
-
-    return filtered.sort((a, b) => {
-      if (normalizedQuery) {
-        const relevance = searchRank(a, normalizedQuery) - searchRank(b, normalizedQuery);
-        if (relevance !== 0) return relevance;
-      }
-      if (sortKey === "symbol") {
-        return sortDir === "asc" ? a.symbol.localeCompare(b.symbol) : b.symbol.localeCompare(a.symbol);
-      }
-      if (sortKey === "marketCap") {
-        return sortDir === "desc" ? a.marketCapRank - b.marketCapRank : b.marketCapRank - a.marketCapRank;
-      }
-      return a.marketCapRank - b.marketCapRank;
-    }).slice(0, MAX_VISIBLE_STOCKS);
-  }, [universe, normalizedQuery, sectorFilter, exchangeFilter, marketCapFilter, sortKey, sortDir]);
+      if (exchangeFilter !== "all" && stock.exchange !== exchangeFilter) return false;
+      if (!isCustomList && marketCapFilter !== "all" && !matchesMarketCapRank(stock.marketCapRank, marketCapFilter)) return false;
+      return true;
+    }).slice(0, isCustomList ? 100 : MAX_VISIBLE_STOCKS);
+  }, [universe, normalizedQuery, sectorFilter, exchangeFilter, marketCapFilter, isCustomList, sortKey, sortDir]);
 
   const visibleSymbols = useMemo(
     () => visibleCandidates.map(({ symbol, requestSymbol }) => ({ symbol, requestSymbol })),
@@ -221,7 +193,7 @@ export default function MarketTable({
         <div className="flex flex-wrap items-center gap-3 mb-4">
           <input className="input max-w-xs" placeholder="Tìm mã hoặc tên..." value={search} onChange={(e) => setSearch(e.target.value)} id="market-table-search" />
           <select className="input max-w-[160px]" value={sectorFilter} onChange={(e) => setSectorFilter(e.target.value)} id="sector-filter">
-            {sectors.map((s) => <option key={s} value={s}>{s === "all" ? "Tất cả ngành" : s}</option>)}
+            {sectors.map((s) => <option key={s} value={s}>{s === "all" ? "Tất cả danh mục" : s}</option>)}
           </select>
         </div>
       )}
@@ -233,7 +205,7 @@ export default function MarketTable({
             <tr>
               <th>#</th>
               <th onClick={() => toggleSort("symbol")}>Mã <SortIcon k="symbol"/></th>
-              <th>Công ty</th>
+              <th>Tên tài sản</th>
               <th onClick={() => toggleSort("price")}>Giá <SortIcon k="price"/></th>
               <th onClick={() => toggleSort("day1")}>1D % <SortIcon k="day1"/></th>
               <th onClick={() => toggleSort("week1")}>1W % <SortIcon k="week1"/></th>
@@ -243,7 +215,7 @@ export default function MarketTable({
               <th onClick={() => toggleSort("volume")}>KL <SortIcon k="volume"/></th>
               <th onClick={() => toggleSort("peRatio")}>P/E <SortIcon k="peRatio"/></th>
               <th onClick={() => toggleSort("eps")}>EPS <SortIcon k="eps"/></th>
-              <th>Ngành</th>
+              <th>Phân loại</th>
               <th>Chart</th>
               <th></th>
             </tr>
@@ -254,17 +226,17 @@ export default function MarketTable({
               const displayPrice = cached?.price ?? s.price;
               const displayChange = cached?.changePercent ?? s.day1;
               return (
-                <tr key={s.symbol} onClick={() => window.location.href = `/stocks/${s.symbol}`}>
+                <tr key={s.symbol} onClick={() => window.location.href = `/stocks/${encodeURIComponent(s.symbol)}`}>
                   <td className="text-muted-foreground">{i + 1}</td>
                   <td className="font-semibold text-primary">{s.symbol}</td>
-                  <td className="max-w-[140px] truncate">{s.name}</td>
-                  <td className="font-mono font-medium">{formatOptionalCurrency(displayPrice)}</td>
+                  <td className="max-w-[160px] truncate">{s.name}</td>
+                  <td className="font-mono font-medium">{formatOptionalCurrency(displayPrice, s.currency)}</td>
                   <td>{hasFiniteValue(displayChange) ? <PriceChangeBadge value={displayChange} /> : "—"}</td>
                   <td>{hasFiniteValue(s.week1) ? <PriceChangeBadge value={s.week1} /> : "—"}</td>
                   <td>{hasFiniteValue(s.month1) ? <PriceChangeBadge value={s.month1} /> : "—"}</td>
                   <td>{hasFiniteValue(s.ytd) ? <PriceChangeBadge value={s.ytd} /> : "—"}</td>
-                  <td className="font-mono">{formatOptionalLargeNumber(s.marketCap)}</td>
-                  <td className="font-mono">{formatOptionalLargeNumber(s.volume)}</td>
+                  <td className="font-mono">{s.marketCap > 0 ? formatOptionalLargeNumber(s.marketCap) : "—"}</td>
+                  <td className="font-mono">{s.volume > 0 ? formatOptionalLargeNumber(s.volume) : "—"}</td>
                   <td className="font-mono">{s.peRatio > 0 ? s.peRatio.toFixed(1) : "—"}</td>
                   <td className="font-mono">{s.eps > 0 ? s.eps.toFixed(2) : "—"}</td>
                   <td><span className="badge badge-neutral text-xs">{s.sector}</span></td>
@@ -284,19 +256,19 @@ export default function MarketTable({
           const displayPrice = cached?.price ?? s.price;
           const displayChange = cached?.changePercent ?? s.day1;
           return (
-            <a key={s.symbol} href={`/stocks/${s.symbol}`} className="card flex items-center gap-3">
+            <a key={s.symbol} href={`/stocks/${encodeURIComponent(s.symbol)}`} className="card flex items-center gap-3">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-primary">{s.symbol}</span>
                   <span className="text-xs text-muted-foreground truncate">{s.name}</span>
                 </div>
                 <div className="flex items-center gap-3 mt-1">
-                  <span className="font-mono font-medium">{formatOptionalCurrency(displayPrice)}</span>
+                  <span className="font-mono font-medium">{formatOptionalCurrency(displayPrice, s.currency)}</span>
                   {hasFiniteValue(displayChange) ? <PriceChangeBadge value={displayChange} /> : <span>—</span>}
                 </div>
                 <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                  <span>Vốn hóa: {formatOptionalLargeNumber(s.marketCap)}</span>
-                  <span>KL: {formatOptionalLargeNumber(s.volume)}</span>
+                  <span>Vốn hóa: {s.marketCap > 0 ? formatOptionalLargeNumber(s.marketCap) : "—"}</span>
+                  <span>KL: {s.volume > 0 ? formatOptionalLargeNumber(s.volume) : "—"}</span>
                 </div>
               </div>
               <div className="flex flex-col items-end gap-1">

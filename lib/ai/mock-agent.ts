@@ -37,7 +37,7 @@ const MOCK_RESPONSES: Record<string, AIAgentResponse> = {
     message: "Phân tích watchlist của bạn.",
     cards: [
       { type: "watchlist", title: "Tín hiệu Watchlist", content: "3/5 mã trong watchlist đang có tín hiệu tích cực.", data: { "Tín hiệu mua": "NVDA, AAPL", "Theo dõi": "MSFT", "Tín hiệu bán": "Không có" } },
-      { type: "news", title: "Tin nổi bật", content: "NVDA: Doanh thu kỷ lục Q1\nAAPL: Ra mắt sản phẩm mới\nTSLA: Biến động giá mạnh" },
+      { type: "news", title: "Tin nổi bật", content: "NVDA: Siêu chip Blackwell cháy hàng đến 2027, vốn hóa đạt $5.15T\nAAPL: Ra mắt Apple Intelligence thế hệ mới\nTSLA: Ký hợp đồng 100k chip cho Robotaxi" },
     ],
   },
 };
@@ -56,9 +56,159 @@ function detectResponseType(message: string): string {
 export async function getMockAIResponse(message: string, symbol: string = "AAPL"): Promise<AIAgentResponse> {
   await delay(600 + Math.random() * 400);
   if (isObviouslyUnrelated(message)) return { message: SCOPE_REDIRECT, cards: [] };
+
+  if (symbol.toUpperCase() === "NVDA") {
+    const lower = message.toLowerCase();
+    
+    // Why it is up/down / reasons / catalysts
+    if (lower.includes("vì sao") || lower.includes("tăng") || lower.includes("hôm nay") || lower.includes("lý do") || lower.includes("động lực") || lower.includes("why")) {
+      return {
+        message: "NVIDIA (NVDA) hôm nay tăng mạnh +2.95% lên mức kỷ lục $210.69/cổ phiếu nhờ sự cộng hưởng của các siêu hợp đồng AI và sự hậu thuẫn quyết liệt từ Phố Wall:",
+        cards: [
+          {
+            type: "summary",
+            title: "Siêu chip Blackwell GB200 & B200 cháy hàng",
+            content: "Big Tech (Microsoft, Alphabet, Meta, Amazon) ồ ạt đặt cọc thêm hơn 50 tỷ USD cho siêu chip Blackwell GB200 NVL72. Toàn bộ dây chuyền sản xuất đã kín chỗ đến hết năm 2027.",
+            sentiment: "bullish",
+            data: { "Đơn đặt cọc mới": "+$50 Tỷ USD", "Trạng thái sản xuất": "Kín chỗ đến hết 2027", "Nhu cầu thị trường": "Vượt cung 3.5 lần" }
+          },
+          {
+            type: "news",
+            title: "Hợp đồng Tesla Robotaxi & 12 Siêu cường Sovereign AI",
+            content: "Tesla vừa chốt siêu hợp đồng bổ sung 100.000 cụm chip NVIDIA B200 và H200 cho trung tâm huấn luyện xe tự hành Robotaxi. Đồng thời liên minh 12 quốc gia đã ký kết gói đầu tư Siêu trung tâm tính toán AI chủ quyền.",
+            sentiment: "bullish",
+            data: { "Tesla Order": "100.000 cụm GPU", "Sovereign AI": "12 quốc gia tham gia", "Doanh thu dự kiến": "+$20 Tỷ USD" }
+          },
+          {
+            type: "sentiment",
+            title: "Phố Wall nâng mục tiêu giá lên $280",
+            content: "Morgan Stanley và Goldman Sachs đồng loạt nâng Target Price lên $280 (+32.9% từ mức hiện tại), nhấn mạnh biên lợi nhuận gộp 75.8% là vô đối trong ngành công nghệ bán dẫn.",
+            sentiment: "bullish",
+            data: { "Target Price": "$280.00", "Khuyến nghị": "Mua mạnh (Strong Buy)", "Đồng thuận 48 CTCK": "36 Mua mạnh, 8 Mua" }
+          }
+        ]
+      };
+    }
+
+    // Risks
+    if (lower.includes("rủi ro") || lower.includes("risk") || lower.includes("thách thức") || lower.includes("nguy cơ")) {
+      return {
+        message: "Dù triển vọng tăng trưởng của NVIDIA đang ở mức cực kỳ xuất sắc với biên lợi nhuận kỷ lục, nhà đầu tư vẫn nên lưu ý 3 điểm trọng yếu sau:",
+        cards: [
+          {
+            type: "risk",
+            title: "Nút thắt đóng gói chip CoWoS",
+            content: "Nhu cầu vượt xa năng lực cung ứng đóng gói CoWoS tiên tiến của TSMC. Bất kỳ sự chậm trễ nào trong chuỗi cung ứng đều có thể làm chậm tốc độ bàn giao siêu máy chủ Blackwell.",
+            sentiment: "neutral",
+            data: { "Đối tác gia công": "TSMC CoWoS", "Thời gian khắc phục": "Q3-Q4/2026", "Tác động": "Trung bình" }
+          },
+          {
+            type: "risk",
+            title: "Rào cản xuất khẩu địa chính trị",
+            content: "Các biện pháp kiểm soát xuất khẩu chip AI sang thị trường Trung Quốc vẫn tiếp diễn. Tuy nhiên, doanh thu Sovereign AI từ Trung Đông, Nhật Bản và Tây Âu đang bù đắp vượt kỳ vọng.",
+            sentiment: "neutral",
+            data: { "Thị trường ảnh hưởng": "Trung Quốc", "Bù đắp tăng trưởng": "Sovereign AI (+140%)" }
+          },
+          {
+            type: "summary",
+            title: "Sức khỏe tài chính & Đệm an toàn",
+            content: "Nợ dài hạn chỉ $8.46 tỷ so với $34.8 tỷ tiền mặt (Debt/Equity chỉ 0.14). Tỷ số thanh toán hiện hành 4.15 giúp NVDA sở hữu cấu trúc vốn gần như không có rủi ro thanh khoản.",
+            sentiment: "bullish",
+            data: { "Tiền mặt dự trữ": "$34.80 Tỷ", "Debt / Equity": "0.14", "Xếp hạng tín nhiệm": "AAA (Thượng hạng)" }
+          }
+        ]
+      };
+    }
+
+    // Orders
+    const type = detectResponseType(message);
+    if (type === "order") {
+      const isSell = lower.includes("bán") || lower.includes("sell");
+      if (isSell) {
+        return {
+          message: "Lưu ý: NVDA đang nằm trong xu hướng TĂNG MẠNH (Strong Bullish) với hỗ trợ cứng tại $202.50 và kháng cự kế tiếp tại $218.00. Nếu bạn muốn chốt lời một phần hoặc tái cơ cấu danh mục, dưới đây là lệnh BÁN nháp:",
+          cards: [
+            {
+              type: "order",
+              title: "Lệnh BÁN Chốt lời (AI Risk Management)",
+              content: "Khuyến nghị: Chỉ nên chốt lời từng phần (1/3 hoặc 1/2 vị thế) và giữ phần còn lại bám theo xu hướng với Trailing Stop tại $198.50.",
+              data: {
+                "Mã cổ phiếu": "NVDA",
+                "Hành động": "BÁN MỘT PHẦN",
+                "Khối lượng": 50,
+                "Giá khớp dự kiến": "$210.69",
+                "Tổng giá trị": "$10,534.50",
+                "Ngưỡng hỗ trợ": "$202.50",
+              },
+              sentiment: "neutral"
+            }
+          ]
+        };
+      } else {
+        return {
+          message: "Tín hiệu kỹ thuật và cơ bản của NVIDIA hiện tại đạt mức MUA MẠNH (Strong Buy). Dưới đây là lệnh MUA nháp được tối ưu theo giá thị trường hiện tại:",
+          cards: [
+            {
+              type: "order",
+              title: "Xác nhận Lệnh MUA NVDA (AI Suggested)",
+              content: "Hệ thống khuyến nghị MUA TÍCH LŨY với mục tiêu ngắn hạn $245.00 (+16.3%) và kịch bản tăng trưởng $280.00 (+32.9%). Cắt lỗ (Stop Loss) khuyến nghị tại $198.50 (dưới MA20).",
+              data: {
+                "Mã cổ phiếu": "NVDA",
+                "Hành động": "MUA MẠNH",
+                "Khối lượng": 100,
+                "Giá khớp hiện tại": "$210.69",
+                "Tổng giá trị": "$21,069.00",
+                "Mục tiêu 1 (Consensus)": "$245.00 (+16.3%)",
+                "Mục tiêu 2 (Bull Case)": "$280.00 (+32.9%)",
+                "Stop Loss": "$198.50",
+              },
+              sentiment: "bullish"
+            }
+          ]
+        };
+      }
+    }
+
+    // Default overview/analysis for NVDA
+    return {
+      message: "Báo cáo phân tích toàn diện cho NVIDIA Corporation (NVDA) — Cập nhật phiên giao dịch mới nhất:",
+      cards: [
+        {
+          type: "summary",
+          title: "Vị thế dẫn đầu & Luận điểm đầu tư",
+          content: "NVDA là vị vua tuyệt đối của kỷ nguyên trí tuệ nhân tạo toàn cầu với hơn 85% thị phần chip AI. Kiến trúc Blackwell B200/GB200 vừa ra mắt củng cố con hào kinh tế độc tôn, dự kiến mang về trên 100 tỷ USD doanh thu Data Center riêng trong năm tài chính này.",
+          sentiment: "bullish",
+          data: { "Vị thế thị trường": "Độc tôn >85% AI Training", "Vốn hóa": "$5.15 Nghìn tỷ USD", "Xếp hạng AI": "Dẫn đầu tuyệt đối" }
+        },
+        {
+          type: "technical",
+          title: "Chỉ báo kỹ thuật & Động lượng",
+          content: "Tín hiệu MUA MẠNH (Strong Buy) trên toàn bộ khung thời gian. Đường giá nằm vững chắc trên MA20 ($198.50), MA50 ($182.20) và MA200 ($145.60). RSI(14) ở mức 66.8 điểm cho thấy đà mua áp đảo từ khối tổ chức (Smart Money).",
+          sentiment: "bullish",
+          data: { "RSI (14)": "66.8 (Đà tăng mạnh)", "MACD": "+4.250 (Phân kỳ dương)", "Hỗ trợ S1": "$202.50", "Kháng cự R1": "$218.00" }
+        },
+        {
+          type: "sentiment",
+          title: "Tâm lý thị trường & Dòng tin tức",
+          content: "Tâm lý thị trường cực kỳ lạc quan (100% tin tức gần nhất mang sắc thái Tích cực - Bullish). 48 chuyên gia Phố Wall dự báo mức giá bình quân $245.00 và kịch bản tăng trưởng đạt $280.00.",
+          sentiment: "bullish",
+          data: { "Tâm lý chung": "Cực kỳ tích cực (Bullish)", "Mục tiêu trung bình": "$245.00 (+16.3%)", "Mục tiêu cao nhất": "$280.00 (+32.9%)" }
+        },
+        {
+          type: "risk",
+          title: "Định giá & Tỷ lệ PEG",
+          content: "P/E 54.5x nhưng PEG chỉ 0.78x — mức định giá cực kỳ hấp dẫn so với tốc độ tăng trưởng lợi nhuận ròng +152% YoY và biên lợi nhuận gộp kỷ lục 75.8%.",
+          sentiment: "bullish",
+          data: { "P/E TTM": "54.5x", "Forward P/E": "32.8x", "PEG Ratio": "0.78x (Rất hấp dẫn)", "Biên LN Gộp": "75.8%" }
+        }
+      ]
+    };
+  }
+
   const type = detectResponseType(message);
 
   if (type === "order") {
+
     const isSell = message.toLowerCase().includes("bán") || message.toLowerCase().includes("sell");
     const action = isSell ? "BÁN" : "MUA";
     const stock = getStockBySymbol(symbol.toUpperCase());

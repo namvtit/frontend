@@ -1,5 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
+import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/auth-context";
 import { pushToast } from "@/components/ui/toast";
@@ -55,9 +57,16 @@ export default function LoginPage() {
     <div className="min-h-[70vh] flex items-center justify-center fade-in px-4 sm:px-6 py-8">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mx-auto mb-4">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-          </div>
+          <Link href="/" className="inline-block mb-3 transition-transform duration-200 hover:scale-105">
+            <Image
+              src="/logo-emblem.png"
+              alt="FinPilot Logo"
+              width={80}
+              height={56}
+              className="h-16 w-auto mx-auto object-contain drop-shadow-[0_4px_20px_rgba(59,130,246,0.35)]"
+              priority
+            />
+          </Link>
           <h1 className="text-2xl font-bold">Đăng nhập</h1>
           <p className="text-sm text-muted-foreground mt-1">Đăng nhập để theo dõi watchlist và nhận phân tích AI</p>
         </div>

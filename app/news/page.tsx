@@ -40,7 +40,12 @@ export default function NewsPage() {
     return () => { controller.abort(); clearInterval(interval); };
   }, []);
 
-  const positivePercent = news.length ? Math.round(news.filter((n) => n.sentiment === "bullish").length / news.length * 100) : null;
+  const bullishCount = news.filter((n) => n.sentiment === "bullish").length;
+  const neutralCount = news.filter((n) => n.sentiment === "neutral").length;
+  const totalNews = news.length;
+  const positivePercent = totalNews ? Math.round((bullishCount / totalNews) * 100) : 0;
+  const neutralPercent = totalNews ? Math.round((neutralCount / totalNews) * 100) : 0;
+  const negativePercent = totalNews ? Math.max(0, 100 - positivePercent - neutralPercent) : 0;
   const filtered = news.filter((n) => {
     if (cat !== "Tất cả" && n.category !== CAT_MAP[cat]) return false;
     if (search) {
@@ -116,11 +121,24 @@ export default function NewsPage() {
               </div>
               <div className="rounded-lg border border-border bg-card p-5">
                 <h3 className="font-semibold text-sm mb-3 text-foreground">Tâm lý tin tức</h3>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 h-3 rounded-full bg-secondary overflow-hidden">
-                    <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${positivePercent ?? 0}%` }} />
+                <div className="flex h-2.5 w-full rounded-full bg-secondary overflow-hidden mb-3">
+                  <div className="bg-emerald-500 transition-all" style={{ width: `${positivePercent}%` }} title={`Tích cực: ${positivePercent}%`} />
+                  <div className="bg-slate-400 dark:bg-slate-500 transition-all" style={{ width: `${neutralPercent}%` }} title={`Trung lập: ${neutralPercent}%`} />
+                  <div className="bg-red-500 transition-all" style={{ width: `${negativePercent}%` }} title={`Tiêu cực: ${negativePercent}%`} />
+                </div>
+                <div className="grid grid-cols-3 gap-1.5 text-center text-xs">
+                  <div className="rounded bg-emerald-500/10 py-1.5 px-1">
+                    <div className="font-bold text-emerald-600 dark:text-emerald-400">{positivePercent}%</div>
+                    <div className="text-[10px] text-muted-foreground">Tích cực</div>
                   </div>
-                  <span className="text-xs font-mono text-emerald-500">{positivePercent === null ? "Chưa có dữ liệu" : `${positivePercent}% Tích cực`}</span>
+                  <div className="rounded bg-secondary py-1.5 px-1">
+                    <div className="font-bold text-foreground">{neutralPercent}%</div>
+                    <div className="text-[10px] text-muted-foreground">Trung lập</div>
+                  </div>
+                  <div className="rounded bg-red-500/10 py-1.5 px-1">
+                    <div className="font-bold text-red-600 dark:text-red-400">{negativePercent}%</div>
+                    <div className="text-[10px] text-muted-foreground">Tiêu cực</div>
+                  </div>
                 </div>
               </div>
             </div>

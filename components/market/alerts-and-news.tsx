@@ -3,6 +3,7 @@
 import { STOCKS, NEWS } from '@/lib/market/mock-data';
 import { AlertTriangle, Zap, TrendingUp, TrendingDown, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
+import SentimentBadge from '@/components/news/SentimentBadge';
 
 export function AlertsAndNews() {
   const significantMovements = [...STOCKS]
@@ -73,7 +74,10 @@ export function AlertsAndNews() {
                         <span className="text-xs px-2 py-1 rounded bg-secondary text-foreground capitalize">
                           {article.category}
                         </span>
-                        <span className="text-xs text-muted-foreground">{article.source}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">{article.source}</span>
+                          <SentimentBadge sentiment={article.sentiment} />
+                        </div>
                       </div>
                     </div>
                     <ExternalLink className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-1 group-hover:text-primary transition-colors" />

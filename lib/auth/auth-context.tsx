@@ -44,8 +44,8 @@ const AuthContext = createContext<AuthContextType | null>(null);
 const INITIAL_NOTIFICATIONS: Notification[] = [
   {
     id: 'n1',
-    title: 'NVDA tăng 6.62%',
-    message: 'NVIDIA vượt kỳ vọng doanh thu Q1, cổ phiếu tăng mạnh trong phiên.',
+    title: 'NVDA lập kỷ lục $210.69',
+    message: 'Vốn hóa NVIDIA chạm $5.15T, siêu chip Blackwell GB200 cháy hàng tới hết 2027.',
     type: 'success',
     time: '2 phút trước',
     read: false,

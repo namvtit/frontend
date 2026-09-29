@@ -75,7 +75,7 @@ interface AssetDef {
 
 const ASSET_DEFS: AssetDef[] = [
   // Bullish: drift +0.0003, vol 0.02
-  { ticker: 'NVDA',  name: 'NVIDIA Corp.',          currentPrice: 210.69, sectorId: 1, pathParams: PATH_BULLISH,   seedOffset: 100  },
+  { ticker: 'NVDA',  name: 'NVIDIA Corporation',          currentPrice: 210.69, sectorId: 1, pathParams: PATH_BULLISH,   seedOffset: 100  },
   { ticker: 'GOOGL', name: 'Alphabet Inc.',          currentPrice: 368.03, sectorId: 1, pathParams: PATH_BULLISH,   seedOffset: 200  },
   { ticker: 'AMZN',  name: 'Amazon.com Inc.',        currentPrice: 244.39, sectorId: 2, pathParams: PATH_BULLISH,   seedOffset: 300  },
   { ticker: 'META',  name: 'Meta Platforms Inc.',     currentPrice: 577.22, sectorId: 1, pathParams: PATH_BULLISH,   seedOffset: 400  },

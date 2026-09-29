@@ -9,6 +9,7 @@ import { StockCard } from '@/components/market/stock-card';
 import { MarketMetric } from '@/components/market/market-metric';
 import { RiskManagementCard } from '@/components/dashboard/RiskManagementCard';
 import { AiTradingSuggestions } from '@/components/dashboard/AiTradingSuggestions';
+import SentimentBadge from '@/components/news/SentimentBadge';
 import Link from 'next/link';
 import {
   TrendingUp,
@@ -387,7 +388,10 @@ export default function DashboardPage() {
                     <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors line-clamp-2">
                       {article.title}
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">{article.source}</p>
+                    <div className="flex items-center justify-between mt-1.5">
+                      <span className="text-xs text-muted-foreground">{article.source}</span>
+                      <SentimentBadge sentiment={article.sentiment} />
+                    </div>
                   </Link>
                 ))}
               </div>

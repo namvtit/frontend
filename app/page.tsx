@@ -10,10 +10,12 @@ import { EconomicCalendar } from '@/components/market/economic-calendar';
 import { useRouter } from 'next/navigation';
 import { TrendingUp, TrendingDown, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useDemo } from '@/lib/demo';
 import { useLivePrices } from '@/lib/market/use-live-prices';
 import { formatNumber } from '@/lib/utils';
 import { DemoPitchCTA } from '@/components/home/demo-pitch-cta';
+import SentimentBadge from '@/components/news/SentimentBadge';
 
 export default function HomePage() {
   const router = useRouter();
@@ -186,11 +188,14 @@ export default function HomePage() {
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-primary/10 text-primary capitalize">
-                        {article.category}
-                      </span>
-                      <span className="text-xs text-muted-foreground">{article.source}</span>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-primary/10 text-primary capitalize">
+                          {article.category}
+                        </span>
+                        <span className="text-xs text-muted-foreground">{article.source}</span>
+                      </div>
+                      <SentimentBadge sentiment={article.sentiment} />
                     </div>
                     <h3 className="font-semibold text-card-foreground line-clamp-2">{article.title}</h3>
                     <p className="mt-2 text-sm text-muted-foreground line-clamp-2">{article.summary}</p>
@@ -221,8 +226,12 @@ export default function HomePage() {
       {/* Footer */}
       <footer className="border-t border-border bg-card">
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">© 2026 FinPilot. All rights reserved.</p>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2.5">
+              <Image src="/logo-emblem.png" alt="FinPilot Logo" width={32} height={22} className="h-6 w-auto object-contain" />
+              <span className="font-bold text-sm text-foreground">Fin<span className="text-primary">Pilot</span></span>
+              <span className="text-xs text-muted-foreground ml-1">© 2026 FinPilot. All rights reserved.</span>
+            </div>
             <div className="flex gap-6">
               <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Terms</a>
               <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Privacy</a>

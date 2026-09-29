@@ -2,54 +2,104 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import { useTheme } from "next-themes";
 import { BrainCircuit, TrendingUp, TrendingDown, Activity } from "lucide-react";
+import { getStockBySymbol } from "@/lib/market/mock-data";
 
 /* ── Mock data generator ── */
 function generateMockData(symbol: string) {
+  const stock = getStockBySymbol(symbol);
   const seed = symbol.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
   const rng = (i: number) => Math.sin(seed * 9301 + i * 49297) * 0.5 + 0.5;
 
-  const basePrice = 150 + (seed % 100);
+  const currentPrice = stock ? stock.price : 150 + (seed % 100);
   const today = new Date();
   const historical: { time: string; value: number }[] = [];
   const prediction: { time: string; value: number }[] = [];
   const upperBand: { time: string; value: number }[] = [];
   const lowerBand: { time: string; value: number }[] = [];
 
-  let price = basePrice;
+  // Consistent sentiment logic:
+  // If price forecast is up -> Bullish (Tích cực).
+  // For NVDA, with massive Blackwell backlog and AI supercycle -> strongly Bullish (+1).
+  let trend = 1;
+  if (symbol.toUpperCase() === "NVDA") {
+    trend = 1;
+  } else if (stock) {
+    if (stock.ytd < -15 && stock.day1 < 0) {
+      trend = -1;
+    } else if (stock.day1 >= 0 || stock.ytd >= 0) {
+      trend = 1;
+    } else {
+      trend = rng(seed * 7) > 0.45 ? 1 : -1;
+    }
+  } else {
+    trend = rng(seed * 7) > 0.45 ? 1 : -1;
+  }
+
+  // Anchor historical curve ending precisely at currentPrice
+  const startRatio = trend === 1 ? 0.82 : 1.15;
+  let price = currentPrice * startRatio;
+  const driftPerStep = (currentPrice - price) / 60;
+
   for (let i = 59; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
     if (d.getDay() === 0 || d.getDay() === 6) continue;
-    const change = (rng(i * 3 + seed) - 0.48) * 4;
-    price += change;
-    price = Math.max(price * 0.95, Math.min(price * 1.05, price));
+    const noise = (rng(i * 3 + seed) - 0.48) * (currentPrice * 0.018);
+    price += driftPerStep + noise;
     historical.push({
       time: d.toISOString().split("T")[0],
       value: Math.round(price * 100) / 100,
     });
   }
 
-  const lastPrice = historical[historical.length - 1].value;
-  const lastDate = new Date(historical[historical.length - 1].time);
+  if (historical.length > 0) {
+    historical[historical.length - 1].value = currentPrice;
+  }
+
+  const lastPrice = currentPrice;
+  const lastDate = historical.length > 0 ? new Date(historical[historical.length - 1].time) : today;
 
   prediction.push({ time: historical[historical.length - 1].time, value: lastPrice });
   upperBand.push({ time: historical[historical.length - 1].time, value: lastPrice });
   lowerBand.push({ time: historical[historical.length - 1].time, value: lastPrice });
 
   let predPrice = lastPrice;
-  const trend = rng(seed * 7) > 0.45 ? 1 : -1;
-  for (let i = 1; i <= 60; i++) {
-    const d = new Date(lastDate);
-    d.setDate(d.getDate() + i);
-    if (d.getDay() === 0 || d.getDay() === 6) continue;
-    const drift = trend * 0.3 + (rng(i * 7 + seed * 3) - 0.5) * 2;
-    predPrice += drift;
-    const dateStr = d.toISOString().split("T")[0];
-    const spread = 1.5 + i * 0.6;
+  if (symbol.toUpperCase() === "NVDA") {
+    // NVDA: Strictly strong upward trajectory matching the 12 breaking bullish news & $5.15T momentum
+    for (let i = 1; i <= 60; i++) {
+      const d = new Date(lastDate);
+      d.setDate(d.getDate() + i);
+      if (d.getDay() === 0 || d.getDay() === 6) continue;
+      // Daily climb averages +0.40% to +0.55%, never negative
+      const dailyGrowth = currentPrice * 0.0042 + (rng(i * 7 + seed * 3) * 0.0018 * currentPrice);
+      predPrice += dailyGrowth;
+      const dateStr = d.toISOString().split("T")[0];
+      const spread = (currentPrice * 0.01) + (i * currentPrice * 0.0015);
 
-    prediction.push({ time: dateStr, value: Math.round(predPrice * 100) / 100 });
-    upperBand.push({ time: dateStr, value: Math.round((predPrice + spread) * 100) / 100 });
-    lowerBand.push({ time: dateStr, value: Math.round((predPrice - spread) * 100) / 100 });
+      const val = Math.round(predPrice * 100) / 100;
+      const upper = Math.round((predPrice + spread) * 100) / 100;
+      // Lower band stays strictly above starting currentPrice to reinforce 100% upward forecast
+      const lower = Math.round(Math.max(lastPrice, predPrice - spread) * 100) / 100;
+
+      prediction.push({ time: dateStr, value: val });
+      upperBand.push({ time: dateStr, value: upper });
+      lowerBand.push({ time: dateStr, value: lower });
+    }
+  } else {
+    const stepRate = trend === 1 ? currentPrice * 0.0035 : -currentPrice * 0.0028;
+    for (let i = 1; i <= 60; i++) {
+      const d = new Date(lastDate);
+      d.setDate(d.getDate() + i);
+      if (d.getDay() === 0 || d.getDay() === 6) continue;
+      const drift = stepRate + (rng(i * 7 + seed * 3) - 0.5) * (currentPrice * 0.012);
+      predPrice += drift;
+      const dateStr = d.toISOString().split("T")[0];
+      const spread = (currentPrice * 0.015) + i * (currentPrice * 0.003);
+
+      prediction.push({ time: dateStr, value: Math.round(predPrice * 100) / 100 });
+      upperBand.push({ time: dateStr, value: Math.round((predPrice + spread) * 100) / 100 });
+      lowerBand.push({ time: dateStr, value: Math.round(Math.max(1, predPrice - spread) * 100) / 100 });
+    }
   }
 
   const predChange = prediction[prediction.length - 1].value - lastPrice;
@@ -298,8 +348,12 @@ export default function AIPredictionChart({ symbol, height = 280, data: external
         <div className="flex items-center gap-2">
           <BrainCircuit className="h-4 w-4 text-purple-500" />
           <h3 className="text-sm font-bold text-foreground">Dự đoán AI</h3>
-          <span className="rounded-full border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 text-[10px] font-semibold text-purple-600 dark:text-purple-400">
-            {externalData ? "TRỰC TIẾP" : "DỰ BÁO"}
+          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold border ${
+            isBullish 
+              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+              : "border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400"
+          }`}>
+            {isBullish ? "DỰ BÁO: TĂNG TRƯỞNG MẠNH (BULLISH)" : "DỰ BÁO: TIÊU CỰC"}
           </span>
         </div>
         <div className="flex items-center gap-3 text-xs">

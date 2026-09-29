@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { STOCKS, INDICES } from "@/lib/market/mock-data";
+import { getStockBySymbol, INDICES } from "@/lib/market/mock-data";
 
 // Yahoo Finance v8 chart API – still publicly accessible (v7 quote API is blocked)
 async function fetchChartPrice(symbol: string): Promise<{
@@ -107,15 +107,15 @@ function getMockQuote(sym: string) {
     }
   }
 
-  // Stock symbols
+  // Stock and other asset symbols
   const stockSymbolMap: Record<string, string> = { "BRK-B": "BRK.B" };
   const mapped = stockSymbolMap[target] ?? target;
-  const stock = STOCKS.find((s) => s.symbol === mapped);
+  const stock = getStockBySymbol(mapped);
   if (stock) {
     const fluctuation = (Math.random() - 0.5) * 0.4;
-    const finalPrice = Math.max(1, stock.price * (1 + fluctuation / 100));
+    const finalPrice = Math.max(0.0001, stock.price * (1 + fluctuation / 100));
     const finalChange = stock.change + (finalPrice - stock.price);
-    const finalPct = (finalChange / (finalPrice - finalChange)) * 100;
+    const finalPct = stock.price > 0 ? (finalChange / (finalPrice - finalChange)) * 100 : 0;
     return {
       symbol: target,
       regularMarketPrice: Math.round(finalPrice * 100) / 100,

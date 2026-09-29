@@ -65,7 +65,7 @@ export function buildPortfolio(options: BuildPortfolioOptions): PortfolioProposa
   }> = [
     { symbol: 'AAPL', name: 'Apple Inc.', sector: 'Technology', volatility: 1.2, role: 'Core quality', confidence: 78 },
     { symbol: 'MSFT', name: 'Microsoft Corp.', sector: 'Technology', volatility: 0.9, role: 'Core quality', confidence: 82 },
-    { symbol: 'NVDA', name: 'NVIDIA Corp.', sector: 'Technology', volatility: 1.7, role: 'Growth', confidence: 85 },
+    { symbol: 'NVDA', name: 'NVIDIA Corporation', sector: 'Technology', volatility: 1.7, role: 'Growth', confidence: 85 },
     { symbol: 'JPM', name: 'JPMorgan Chase', sector: 'Financials', volatility: 1.1, role: 'Cash-flow / value', confidence: 70 },
     { symbol: 'V', name: 'Visa Inc.', sector: 'Financials', volatility: 0.95, role: 'Core quality', confidence: 75 },
     { symbol: 'JNJ', name: 'Johnson & Johnson', sector: 'Healthcare', volatility: 0.85, role: 'Defensive', confidence: 72 },

@@ -8,7 +8,7 @@ import { usePathname } from 'next/navigation';
 import { TopNav, MobileNav } from './TopNav';
 import { NewsTicker } from '@/components/market/news-ticker';
 
-const IMMERSIVE_ROUTES = ['/demo/market-replay'];
+const IMMERSIVE_ROUTES = ['/demo/market-replay', '/pwa'];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

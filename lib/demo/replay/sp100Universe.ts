@@ -14,7 +14,7 @@ export const SP100_UNIVERSE: SP100Company[] = [
   // Technology (20)
   { symbol: 'AAPL', name: 'Apple Inc.', sector: 'Technology', supportedForReplay: true },
   { symbol: 'MSFT', name: 'Microsoft Corp.', sector: 'Technology', supportedForReplay: true },
-  { symbol: 'NVDA', name: 'NVIDIA Corp.', sector: 'Technology', supportedForReplay: true },
+  { symbol: 'NVDA', name: 'NVIDIA Corporation', sector: 'Technology', supportedForReplay: true },
   { symbol: 'GOOGL', name: 'Alphabet Inc.', sector: 'Technology', supportedForReplay: true },
   { symbol: 'AMZN', name: 'Amazon.com Inc.', sector: 'Technology', supportedForReplay: true },
   { symbol: 'META', name: 'Meta Platforms Inc.', sector: 'Technology', supportedForReplay: true },

@@ -1,8 +1,8 @@
 import "server-only";
 import { createHash } from "node:crypto";
-import { PUBLISHER_DOMAINS } from "./safe-fetch";
 import Parser from "rss-parser";
-import type { NewsItem } from "@/lib/market/mock-data";
+import { PUBLISHER_DOMAINS } from "./safe-fetch";
+import { NEWS, type NewsItem } from "@/lib/market/mock-data";
 
 
 
@@ -102,13 +102,11 @@ async function fetchNews(): Promise<NewsItem[]> {
 }
 
 export async function getNews(): Promise<NewsItem[]> {
-  if (state.cache && state.cache.expiresAt > Date.now()) return state.cache.data;
-  state.pending ??= fetchNews().finally(() => { state.pending = undefined; });
-  return state.pending;
+  return [...NEWS].sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
 }
 
 export async function findNews(id: string): Promise<NewsItem | undefined> {
   const retained = state.articles.get(id);
   if (retained && retained.expiresAt > Date.now()) return retained.item;
-  return (await getNews()).find((item) => item.detailId === id || item.id === id);
+  return NEWS.find((item) => item.detailId === id || item.id === id);
 }
