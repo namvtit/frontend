@@ -32,6 +32,8 @@ services:
   postgres:
     image: postgres:17-alpine
     restart: unless-stopped
+    security_opt:
+      - seccomp:unconfined
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-finpilot}
       POSTGRES_USER: ${POSTGRES_USER:-finpilot}
